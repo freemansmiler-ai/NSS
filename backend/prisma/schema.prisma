@@ -1,0 +1,90 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+enum Role {
+  TENANT
+  LANDLORD
+  ADMIN
+}
+
+enum PropertyType {
+  SINGLE_ROOM
+  CHAMBER_AND_HALL
+}
+
+enum FacilityType {
+  SELF_CONTAIN
+  SHARED_FACILITIES
+}
+
+enum LeasePeriod {
+  TEN_MONTHS
+  ONE_YEAR
+  TWO_YEARS_PLUS
+}
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  password        String   // Hashed password (Bcrypt)
+  fullName        String
+  phoneNumber     String   @unique // Saved in international format: e.g. +233240000000
+  isPhoneVerified Boolean  @default(false)
+  isVerified      Boolean  @default(false) // Admin verified status for both tenants and landlords
+  isUnlocked      Boolean  @default(false) // Tenant contact/GPS unlock status via GHc 20.00 Paystack fee
+  role            Role     @default(TENANT)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  properties      Property[]
+
+  @@map("users")
+}
+
+model Property {
+  id                 String       @id @default(uuid())
+  landlordId         String
+  landlord           User         @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+  
+  title              String       // e.g., "Clean Self-Contain Chamber & Hall near Legon"
+  propertyType       PropertyType
+  facilityType       FacilityType
+  pricePerMonth      Decimal      @db.Decimal(10, 2) // in GH₵
+  minLeasePeriod     LeasePeriod  @default(TEN_MONTHS)
+  
+  // LOCATION FIELDS
+  generalArea        String       // e.g., "Madina - Social Center Area"
+  exactGhanaPostGps  String       // e.g., "GA-183-9021"
+  exactStreetAddress String       // e.g., "House No. H/402, Fire Armor Street"
+  latitude           Float
+  longitude          Float
+  
+  description        String       @db.Text
+  amenities          String[]     // ["Water Tank", "ECG Prepaid Meter", "Fenced Gate"]
+  images             String[]     // Array of interior/exterior image URLs
+  
+  contactPhone       String       // Direct call line
+  contactWhatsapp    String       // Direct WhatsApp number (international format e.g., 233240000000)
+  
+  // PROPERTY VERIFICATION BADGES
+  isGpsVerified      Boolean      @default(true)
+  isLandlordVerified Boolean      @default(true)
+  
+  paymentRef         String?      // Paystack transaction reference
+  lastRenewedAt      DateTime     @default(now())
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([propertyType, facilityType, isActive])
+  @@index([pricePerMonth])
+  @@index([generalArea])
+  @@map("properties")
+}
