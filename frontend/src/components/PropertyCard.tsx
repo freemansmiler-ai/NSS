@@ -1,5 +1,6 @@
 "use client";
 
+
 // Force redeploy after image debugging
 
 import { useState } from "react";
@@ -40,6 +41,9 @@ export default function PropertyCard({
   onOpenVerification,
   onUnlockSuccess,
 }: PropertyCardProps) {
+    console.log("PROPERTY CARD IMAGE:", property.title, property.images);
+  console.log("PROPERTY DATA:", property);
+console.log("IMAGE URL:", property.images);
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
 
@@ -181,8 +185,11 @@ export default function PropertyCard({
         <div className="relative h-52 w-full overflow-hidden bg-slate-950">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={property.images[0] || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
+            src={(property.images && property.images.length > 0 && property.images[0]) ? property.images[0] : "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
             alt={property.title}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80";
+            }}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/30" />

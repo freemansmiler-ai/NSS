@@ -68,20 +68,56 @@ export default function LandlordPostModal({
     }));
   };
 
-  const handleDeviceFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const base64Url = event.target?.result as string;
-        if (base64Url) {
-          setUploadedImages((prev) => [...prev, base64Url]);
-        }
+        const imgUrl = event.target?.result as string;
+        if (!imgUrl) return resolve("");
+        const img = document.createElement("img");
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1200;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.75));
+          } else {
+            resolve(imgUrl);
+          }
+        };
+        img.onerror = () => resolve(imgUrl);
+        img.src = imgUrl;
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const handleDeviceFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const fileList = Array.from(files);
+      const compressedList = await Promise.all(fileList.map((file) => compressImage(file)));
+      const validImages = compressedList.filter((img) => Boolean(img));
+      setUploadedImages((prev) => [...prev, ...validImages]);
+    } catch {
+      // Fallback if compression encounters an error
+    }
   };
 
   const removeUploadedImage = (index: number) => {

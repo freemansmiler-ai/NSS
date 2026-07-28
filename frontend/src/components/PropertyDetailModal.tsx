@@ -201,8 +201,11 @@ export default function PropertyDetailModal({
           <div className="relative h-64 sm:h-96 w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={property.images[selectedImageIdx] || property.images[0]}
+              src={(property.images && property.images.length > 0) ? (property.images[selectedImageIdx] || property.images[0]) : "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
               alt={property.title}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80";
+              }}
               className="w-full h-full object-cover"
             />
             <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
@@ -211,7 +214,7 @@ export default function PropertyDetailModal({
             </div>
           </div>
 
-          {property.images.length > 1 && (
+          {property.images && property.images.length > 1 && (
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
               {property.images.map((img, idx) => (
                 <button
@@ -222,7 +225,14 @@ export default function PropertyDetailModal({
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img} alt="Thumbnail" className="w-full h-full object-cover" />
+                  <img
+                    src={img || "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
+                    alt="Thumbnail"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80";
+                    }}
+                    className="w-full h-full object-cover"
+                  />
                 </button>
               ))}
             </div>

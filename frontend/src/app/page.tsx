@@ -16,23 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
-  Filter,
   MapPin,
   Navigation,
-  Sparkles,
   ShieldCheck,
-  Home,
-  SlidersHorizontal,
   Map as MapIcon,
   Grid,
-  PhoneCall,
   X,
-  PlusCircle,
   Building2,
-  CheckCircle2,
   Lock,
-  UserCheck,
-  KeyRound,
   ArrowRight
 } from "lucide-react";
 

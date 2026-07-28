@@ -122,8 +122,11 @@ export default function MapComponent({
                   <div className="h-28 w-full rounded-lg overflow-hidden mb-2 relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={property.images[0]}
+                      src={(property.images && property.images.length > 0 && property.images[0]) ? property.images[0] : "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
                       alt={property.title}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80";
+                      }}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-500/30">

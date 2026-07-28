@@ -685,8 +685,11 @@ export default function AdminDashboardPage() {
                         <td className="p-4 font-bold text-slate-100 flex items-center gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={prop.images[0]}
+                            src={(prop.images && prop.images.length > 0 && prop.images[0]) ? prop.images[0] : "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80"}
                             alt={prop.title}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1000&q=80";
+                            }}
                             className="w-10 h-10 rounded-xl object-cover border border-slate-800 shrink-0"
                           />
                           <span className="line-clamp-1">{prop.title}</span>
