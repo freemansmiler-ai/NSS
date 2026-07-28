@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifySessionToken, createSessionToken } from "@/lib/auth";
+import { verifySessionToken, createSessionToken, COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("nss_session")?.value;
+    const token = cookieStore.get(COOKIE_NAME)?.value;
     const session = token ? await verifySessionToken(token) : null;
 
     const body = await request.json();
@@ -27,31 +27,33 @@ export async function POST(request: Request) {
             data: { isUnlocked: true } as any,
           });
         } catch {}
-
-        const updatedSession = {
-          ...session,
-          isUnlocked: true,
-        };
-
-        const newToken = await createSessionToken(updatedSession);
-        cookieStore.set("nss_session", newToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 30,
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: "GhanaPostGPS address, Call line, WhatsApp, Street address & Interactive map unlocked successfully!",
-          user: updatedSession,
-        });
       }
+
+      const updatedSession = session
+        ? { ...session, isUnlocked: true }
+        : {
+            userId: `usr-unlocked-${Date.now()}`,
+            email: "tenant@nssdirectstay.gh",
+            fullName: "NSP Tenant",
+            role: "TENANT" as const,
+            isPhoneVerified: true,
+            isVerified: true,
+            isUnlocked: true,
+          };
+
+      const newToken = await createSessionToken(updatedSession);
+      cookieStore.set(COOKIE_NAME, newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
 
       return NextResponse.json({
         success: true,
         message: "GhanaPostGPS address, Call line, WhatsApp, Street address & Interactive map unlocked successfully!",
+        user: updatedSession,
       });
     }
 

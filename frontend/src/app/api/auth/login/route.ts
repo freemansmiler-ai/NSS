@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyPassword, createSessionToken } from "@/lib/auth";
+import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
           const token = await createSessionToken(sessionData);
           const cookieStore = await cookies();
-          cookieStore.set("nss_directstay_session", token, {
+          cookieStore.set(COOKIE_NAME, token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
       const token = await createSessionToken(u);
       const cookieStore = await cookies();
-      cookieStore.set("nss_session", token, {
+      cookieStore.set(COOKIE_NAME, token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

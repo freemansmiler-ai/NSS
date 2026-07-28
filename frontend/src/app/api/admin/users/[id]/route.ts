@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifySessionToken } from "@/lib/auth";
+import { verifySessionToken, COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function PATCH(
@@ -9,7 +9,7 @@ export async function PATCH(
 ) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("nss_session")?.value;
+    const token = cookieStore.get(COOKIE_NAME)?.value;
     const session = token ? await verifySessionToken(token) : null;
 
     if (!session || session.role !== "ADMIN") {
@@ -51,7 +51,7 @@ export async function DELETE(
 ) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("nss_session")?.value;
+    const token = cookieStore.get(COOKIE_NAME)?.value;
     const session = token ? await verifySessionToken(token) : null;
 
     if (!session || session.role !== "ADMIN") {

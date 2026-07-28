@@ -6,7 +6,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "FreemanSmiler"
 );
 
-const COOKIE_NAME = "nss_directstay_session";
+export const COOKIE_NAME = "nss_session";
 
 export interface UserSession {
   userId: string;

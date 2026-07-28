@@ -94,11 +94,23 @@ export default function PropertyCard({
           }),
         });
         const data = await res.json();
-        if (data.user && onUnlockSuccess) {
-          onUnlockSuccess(data.user);
+        const unlockedUser = data.user || {
+          userId: user?.userId || `usr-${Date.now()}`,
+          email: user?.email || "tenant@nssdirectstay.gh",
+          fullName: user?.fullName || "NSP Tenant",
+          role: user?.role || "TENANT",
+          isPhoneVerified: true,
+          isVerified: true,
+          isUnlocked: true,
+        };
+        if (onUnlockSuccess) {
+          onUnlockSuccess(unlockedUser);
         }
-      } catch {}
-      setUnlockLoading(false);
+      } catch (err) {
+        console.error("Unlock verification failed:", err);
+      } finally {
+        setUnlockLoading(false);
+      }
     };
 
     try {

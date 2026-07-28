@@ -54,13 +54,35 @@ export default function HomePage() {
     POPULAR_NSP_WORKPLACES[0] // Default to UG Legon
   );
 
-  // Check current auth session
+  const handleUpdateUser = (updatedUser: UserSession | null) => {
+    setUser(updatedUser);
+    if (updatedUser) {
+      try {
+        localStorage.setItem("nss_user", JSON.stringify(updatedUser));
+      } catch {}
+    } else {
+      try {
+        localStorage.removeItem("nss_user");
+      } catch {}
+    }
+  };
+
+  // Check current auth session with localStorage fallback
   useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem("nss_user");
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch {}
+
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {
-          setUser(data.user);
+          handleUpdateUser(data.user);
+        } else {
+          handleUpdateUser(null);
         }
       })
       .catch(() => {})
@@ -92,12 +114,14 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    loadProperties();
-  }, [searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice]);
+    if (user) {
+      loadProperties();
+    }
+  }, [searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice, user]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
+    handleUpdateUser(null);
   };
 
   const handleOpenPostProperty = () => {
@@ -490,7 +514,7 @@ export default function HomePage() {
                 selectedWorkplace={selectedWorkplace}
                 onSelect={(p) => setSelectedProperty(p)}
                 onOpenVerification={() => setIsVerificationOpen(true)}
-                onUnlockSuccess={(u) => setUser(u)}
+                onUnlockSuccess={(u) => handleUpdateUser(u)}
               />
             ))}
           </div>
@@ -505,7 +529,7 @@ export default function HomePage() {
                   selectedWorkplace={selectedWorkplace}
                   onSelect={(p) => setSelectedProperty(p)}
                   onOpenVerification={() => setIsVerificationOpen(true)}
-                  onUnlockSuccess={(u) => setUser(u)}
+                  onUnlockSuccess={(u) => handleUpdateUser(u)}
                 />
               ))}
             </div>
@@ -556,7 +580,7 @@ export default function HomePage() {
         selectedWorkplace={selectedWorkplace}
         isOpen={!!selectedProperty}
         onClose={() => setSelectedProperty(null)}
-        onUnlockSuccess={(u) => setUser(u)}
+        onUnlockSuccess={(u) => handleUpdateUser(u)}
       />
 
       <CommuteCalculatorModal
@@ -582,13 +606,14 @@ export default function HomePage() {
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
-        onSuccess={(u) => setUser(u)}
+        onSuccess={(u) => handleUpdateUser(u)}
       />
 
       <VerificationModal
         isOpen={isVerificationOpen}
         onClose={() => setIsVerificationOpen(false)}
         user={user}
+        onVerifiedSuccess={(u) => u && handleUpdateUser(u)}
       />
 
     </div>
