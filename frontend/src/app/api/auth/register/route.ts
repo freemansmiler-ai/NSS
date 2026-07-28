@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
       const token = await createSessionToken(sessionData);
       const cookieStore = await cookies();
-      cookieStore.set("nss_session", token, {
+     cookieStore.set("nss_directstay_session", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
