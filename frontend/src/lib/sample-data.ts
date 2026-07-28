@@ -29,6 +29,10 @@ export interface PropertyData {
   contactWhatsapp: string;
   isActive: boolean;
   isNewlyListed?: boolean;
+  viewsCount?: number;
+  daysRemaining?: number;
+  daysUntilDeletion?: number;
+  isExpired?: boolean;
   paymentRef?: string | null;
   lastRenewedAt?: string;
   createdAt: string;

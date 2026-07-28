@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { INITIAL_PROPERTIES, INITIAL_LANDLORDS, PropertyData, UserData } from "./sample-data";
+import fs from "fs";
+import path from "path";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -11,14 +13,55 @@ export const prisma =
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-let localPropertiesStore: PropertyData[] = [...INITIAL_PROPERTIES];
+const PERSIST_FILE = path.join(process.cwd(), "properties-cache.json");
+const DELETED_FILE = path.join(process.cwd(), "deleted-properties.json");
+
+function loadDeletedIds(): Set<string> {
+  try {
+    if (fs.existsSync(DELETED_FILE)) {
+      const data = fs.readFileSync(DELETED_FILE, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {}
+  return new Set();
+}
+
+function saveDeletedIds(deletedSet: Set<string>) {
+  try {
+    fs.writeFileSync(DELETED_FILE, JSON.stringify(Array.from(deletedSet), null, 2), "utf-8");
+  } catch {}
+}
+
+let deletedPropertyIds: Set<string> = loadDeletedIds();
+
+function loadLocalStore(): PropertyData[] {
+  try {
+    if (fs.existsSync(PERSIST_FILE)) {
+      const data = fs.readFileSync(PERSIST_FILE, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((p: PropertyData) => !deletedPropertyIds.has(p.id));
+      }
+    }
+  } catch {}
+  return INITIAL_PROPERTIES.filter((p) => !deletedPropertyIds.has(p.id));
+}
+
+function saveLocalStore(store: PropertyData[]) {
+  try {
+    fs.writeFileSync(PERSIST_FILE, JSON.stringify(store, null, 2), "utf-8");
+  } catch {}
+}
+
+let localPropertiesStore: PropertyData[] = loadLocalStore();
 let localUsersStore: UserData[] = [...INITIAL_LANDLORDS];
 
 export function processPropertyLifecycle(prop: PropertyData): { item: PropertyData; shouldDelete: boolean } {
   const now = new Date();
   const createdDate = new Date(prop.lastRenewedAt || prop.createdAt);
-  const diffTime = Math.abs(now.getTime() - createdDate.getTime());
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffTime = now.getTime() - createdDate.getTime();
+  const diffDays = diffTime < 0 ? 0 : Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
   // Failure to renew after 93 days -> delist from system and database
   if (diffDays >= 93) {
@@ -28,11 +71,18 @@ export function processPropertyLifecycle(prop: PropertyData): { item: PropertyDa
   const isNewlyListed = diffDays <= 7;
   // Available in system within 90 days. Between 90 and 93 days, requires renewal
   const isAvailable = diffDays < 90;
+  const daysRemaining = Math.max(0, 90 - diffDays);
+  const daysUntilDeletion = Math.max(0, 93 - diffDays);
+  const isExpired = diffDays >= 90;
 
   return {
     item: {
       ...prop,
       isNewlyListed,
+      viewsCount: prop.viewsCount ?? 0,
+      daysRemaining,
+      daysUntilDeletion,
+      isExpired,
       isActive: prop.isActive && isAvailable,
     },
     shouldDelete: false,
@@ -46,6 +96,7 @@ export async function getProperties(params?: {
   minLeasePeriod?: string;
   maxPrice?: number;
   area?: string;
+  landlordId?: string;
   includeInactive?: boolean;
 }): Promise<PropertyData[]> {
   let allProps: PropertyData[] = [];
@@ -53,6 +104,9 @@ export async function getProperties(params?: {
   try {
     const whereClause: any = params?.includeInactive ? {} : { isActive: true };
 
+    if (params?.landlordId) {
+      whereClause.landlordId = params.landlordId;
+    }
     if (params?.propertyType && params.propertyType !== "ALL") {
       whereClause.propertyType = params.propertyType;
     }
@@ -88,6 +142,7 @@ export async function getProperties(params?: {
         pricePerMonth: Number(p.pricePerMonth),
         lastRenewedAt: (p as any).lastRenewedAt ? (p as any).lastRenewedAt.toISOString() : p.createdAt.toISOString(),
         paymentRef: (p as any).paymentRef || undefined,
+        viewsCount: (p as any).viewsCount ?? 0,
         createdAt: p.createdAt.toISOString(),
         updatedAt: p.updatedAt.toISOString(),
         landlord: p.landlord ? {
@@ -110,10 +165,10 @@ export async function getProperties(params?: {
       }
     }
   } catch {
-    // Graceful fallback to local in-memory dataset
+    // Graceful fallback to local in-memory/file dataset
   }
 
-  // Merge localPropertiesStore (e.g. properties added in memory fallback or during demo mode)
+  // Merge localPropertiesStore
   const existingIds = new Set(allProps.map((p) => p.id));
   const remainingLocal: PropertyData[] = [];
 
@@ -125,6 +180,9 @@ export async function getProperties(params?: {
     remainingLocal.push(p);
 
     if (!existingIds.has(p.id)) {
+      if (params?.landlordId && p.landlordId !== params.landlordId && p.landlord?.email !== params.landlordId && p.landlord?.id !== params.landlordId) {
+        continue;
+      }
       if (!params?.includeInactive && !lifecycle.item.isActive) {
         continue;
       }
@@ -159,7 +217,9 @@ export async function getProperties(params?: {
     }
   }
 
-  localPropertiesStore = remainingLocal;
+  localPropertiesStore = remainingLocal.filter((p) => !deletedPropertyIds.has(p.id));
+  saveLocalStore(localPropertiesStore);
+  allProps = allProps.filter((p) => !deletedPropertyIds.has(p.id));
   // Sort descending by creation date so newly listed properties are always at top
   allProps.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return allProps;
@@ -177,6 +237,7 @@ export async function getPropertyById(id: string): Promise<PropertyData | null> 
         pricePerMonth: Number(prop.pricePerMonth),
         lastRenewedAt: (prop as any).lastRenewedAt ? (prop as any).lastRenewedAt.toISOString() : prop.createdAt.toISOString(),
         paymentRef: (prop as any).paymentRef || undefined,
+        viewsCount: (prop as any).viewsCount ?? 0,
         createdAt: prop.createdAt.toISOString(),
         updatedAt: prop.updatedAt.toISOString(),
         landlord: prop.landlord ? {
@@ -204,9 +265,29 @@ export async function getPropertyById(id: string): Promise<PropertyData | null> 
   const lifecycle = processPropertyLifecycle(found);
   if (lifecycle.shouldDelete) {
     localPropertiesStore = localPropertiesStore.filter(p => p.id !== id);
+    saveLocalStore(localPropertiesStore);
     return null;
   }
   return lifecycle.item;
+}
+
+export async function incrementPropertyViews(id: string): Promise<number> {
+  let updatedCount = 0;
+  try {
+    const prop = await prisma.property.update({
+      where: { id },
+      data: { viewsCount: { increment: 1 } } as any,
+    });
+    updatedCount = (prop as any).viewsCount ?? 0;
+  } catch {}
+
+  const localItem = localPropertiesStore.find((p) => p.id === id);
+  if (localItem) {
+    localItem.viewsCount = (localItem.viewsCount ?? 0) + 1;
+    saveLocalStore(localPropertiesStore);
+    if (!updatedCount) updatedCount = localItem.viewsCount;
+  }
+  return updatedCount;
 }
 
 export async function createProperty(data: Omit<PropertyData, "id" | "createdAt" | "updatedAt"> & { paymentRef?: string }): Promise<PropertyData> {
@@ -217,6 +298,10 @@ export async function createProperty(data: Omit<PropertyData, "id" | "createdAt"
     id: newId,
     paymentRef: data.paymentRef,
     lastRenewedAt: now,
+    viewsCount: 0,
+    daysRemaining: 90,
+    daysUntilDeletion: 93,
+    isExpired: false,
     isNewlyListed: true,
     createdAt: now,
     updatedAt: now
@@ -243,32 +328,31 @@ export async function createProperty(data: Omit<PropertyData, "id" | "createdAt"
         contactWhatsapp: data.contactWhatsapp,
         paymentRef: data.paymentRef,
         lastRenewedAt: new Date(now),
+        viewsCount: 0,
         isActive: data.isActive
       } as any
     });
 
-    // Also store in local store for instant UI sync
-    localPropertiesStore.unshift({
+    const fullProp: PropertyData = {
       ...created,
       pricePerMonth: Number(created.pricePerMonth),
       paymentRef: (created as any).paymentRef ?? data.paymentRef,
-      isNewlyListed: true,
-      lastRenewedAt: now,
-      createdAt: created.createdAt.toISOString(),
-      updatedAt: created.updatedAt.toISOString()
-    });
-
-    return {
-      ...created,
-      pricePerMonth: Number(created.pricePerMonth),
-      paymentRef: (created as any).paymentRef ?? data.paymentRef,
+      viewsCount: 0,
+      daysRemaining: 90,
+      daysUntilDeletion: 93,
+      isExpired: false,
       isNewlyListed: true,
       lastRenewedAt: now,
       createdAt: created.createdAt.toISOString(),
       updatedAt: created.updatedAt.toISOString()
     };
+
+    localPropertiesStore.unshift(fullProp);
+    saveLocalStore(localPropertiesStore);
+    return fullProp;
   } catch {
     localPropertiesStore.unshift(newProp);
+    saveLocalStore(localPropertiesStore);
     return newProp;
   }
 }
@@ -289,7 +373,7 @@ export async function renewProperty(id: string, paymentRef: string): Promise<Pro
       include: { landlord: true },
     });
 
-    return {
+    const fullProp: PropertyData = {
       ...updated,
       pricePerMonth: Number(updated.pricePerMonth),
       paymentRef: (updated as any).paymentRef ?? paymentRef,
@@ -298,7 +382,18 @@ export async function renewProperty(id: string, paymentRef: string): Promise<Pro
       updatedAt: nowIso,
       isActive: true,
       isNewlyListed: true,
+      daysRemaining: 90,
+      daysUntilDeletion: 93,
+      isExpired: false,
+      viewsCount: (updated as any).viewsCount ?? 0,
     };
+
+    const idx = localPropertiesStore.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      localPropertiesStore[idx] = fullProp;
+      saveLocalStore(localPropertiesStore);
+    }
+    return fullProp;
   } catch {}
 
   const item = localPropertiesStore.find((p) => p.id === id);
@@ -309,8 +404,63 @@ export async function renewProperty(id: string, paymentRef: string): Promise<Pro
     item.isActive = true;
     item.paymentRef = paymentRef;
     item.isNewlyListed = true;
+    item.daysRemaining = 90;
+    item.daysUntilDeletion = 93;
+    item.isExpired = false;
+    saveLocalStore(localPropertiesStore);
     return item;
   }
 
   return null;
 }
+
+export async function updatePropertyStatus(id: string, isActive: boolean): Promise<PropertyData | null> {
+  try {
+    const updated = await prisma.property.update({
+      where: { id },
+      data: { isActive } as any,
+      include: { landlord: true }
+    });
+
+    const fullProp: PropertyData = {
+      ...updated,
+      pricePerMonth: Number(updated.pricePerMonth),
+      paymentRef: (updated as any).paymentRef || undefined,
+      lastRenewedAt: (updated as any).lastRenewedAt ? (updated as any).lastRenewedAt.toISOString() : updated.createdAt.toISOString(),
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+      isActive,
+      viewsCount: (updated as any).viewsCount ?? 0,
+    };
+
+    const idx = localPropertiesStore.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      localPropertiesStore[idx].isActive = isActive;
+      saveLocalStore(localPropertiesStore);
+    }
+    return fullProp;
+  } catch {}
+
+  const item = localPropertiesStore.find((p) => p.id === id);
+  if (item) {
+    item.isActive = isActive;
+    saveLocalStore(localPropertiesStore);
+    return item;
+  }
+  return null;
+}
+
+export async function deleteProperty(id: string): Promise<boolean> {
+  try {
+    await prisma.property.delete({ where: { id } });
+  } catch {}
+
+  deletedPropertyIds.add(id);
+  saveDeletedIds(deletedPropertyIds);
+
+  localPropertiesStore = localPropertiesStore.filter((p) => p.id !== id);
+  saveLocalStore(localPropertiesStore);
+  return true;
+}
+
+

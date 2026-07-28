@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
 import { WorkplaceHotspot, analyzeCommute } from "@/lib/haversine";
@@ -20,7 +20,8 @@ import {
   CalendarCheck,
   CheckCircle2,
   Lock,
-  Map
+  Map,
+  Eye
 } from "lucide-react";
 
 interface PropertyDetailModalProps {
@@ -43,6 +44,12 @@ export default function PropertyDetailModal({
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && property?.id) {
+      fetch(`/api/properties/${property.id}/view`, { method: "POST" }).catch(() => {});
+    }
+  }, [isOpen, property?.id]);
 
   if (!isOpen || !property) return null;
 
@@ -158,6 +165,13 @@ export default function PropertyDetailModal({
               <Badge variant="default">{propertyTypeLabel}</Badge>
               <Badge variant="outline">{facilityLabel}</Badge>
               <Badge variant="accent">{leasePeriodLabel}</Badge>
+              <span className="bg-slate-900 border border-slate-700 text-teal-300 px-2.5 py-0.5 rounded-lg text-xs font-semibold flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5 text-teal-400" />
+                <span>{property.viewsCount || 0} Views</span>
+              </span>
+              <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 px-2.5 py-0.5 rounded-lg text-xs font-semibold">
+                ⏳ {property.daysRemaining ?? 90} Days Available
+              </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white leading-tight">
               {property.title}

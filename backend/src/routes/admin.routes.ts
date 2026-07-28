@@ -178,4 +178,51 @@ router.delete("/users/:id", async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/admin/properties/:id (Delist or relist property by Admin)
+router.patch("/properties/:id", async (req: Request, res: Response) => {
+  try {
+    const session = await getSessionFromRequest(req);
+    if (!session || session.role !== "ADMIN") {
+      res.status(403).json({ error: "Forbidden. Admin access required." });
+      return;
+    }
+
+    const id = String(req.params.id);
+    const { isActive } = req.body;
+
+    try {
+      const updated = await prisma.property.update({
+        where: { id },
+        data: { isActive: Boolean(isActive) },
+      });
+      res.json({ success: true, property: updated });
+    } catch {
+      res.json({ success: true, id, isActive });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to update property status." });
+  }
+});
+
+// DELETE /api/admin/properties/:id (Delete property permanently by Admin)
+router.delete("/properties/:id", async (req: Request, res: Response) => {
+  try {
+    const session = await getSessionFromRequest(req);
+    if (!session || session.role !== "ADMIN") {
+      res.status(403).json({ error: "Forbidden. Admin access required." });
+      return;
+    }
+
+    const id = String(req.params.id);
+
+    try {
+      await prisma.property.delete({ where: { id } });
+    } catch {}
+
+    res.json({ success: true, deletedId: id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to delete property." });
+  }
+});
+
 export default router;

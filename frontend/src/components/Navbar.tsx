@@ -70,6 +70,16 @@ export default function Navbar({
 
         {/* Desktop Navigation Actions */}
         <div className="hidden md:flex items-center gap-3">
+          {isLandlordOrAdmin && (
+            <Link
+              href="/landlord"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-500/15 text-teal-300 border border-teal-500/40 hover:bg-teal-500/25 transition shadow-sm"
+            >
+              <Building2 className="w-4 h-4 text-teal-400" />
+              <span>Landlord Dashboard</span>
+            </Link>
+          )}
+
           {isAdmin && (
             <Link
               href="/admin"
@@ -100,15 +110,13 @@ export default function Navbar({
             </button>
           )}
 
-          {isLandlordOrAdmin && (
-            <button
-              onClick={onOpenPostProperty}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 hover:from-emerald-400 hover:to-teal-500 transition shadow-lg shadow-emerald-500/25 font-bold"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>{isAdmin ? "Post Room (Free Admin)" : "Post Room (GH₵ 30.00)"}</span>
-            </button>
-          )}
+          <button
+            onClick={onOpenPostProperty}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 hover:from-emerald-400 hover:to-teal-500 transition shadow-lg shadow-emerald-500/25 font-bold"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>{isAdmin ? "Post Room (Free Admin)" : "Post Room (GH₵ 30.00)"}</span>
+          </button>
 
           {user ? (
             <div className="flex items-center gap-2 border-l border-slate-800 pl-3">
@@ -174,6 +182,19 @@ export default function Navbar({
             </p>
           </div>
 
+          {isLandlordOrAdmin && (
+            <Link
+              href="/landlord"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-teal-500/15 border border-teal-500/40 text-teal-300 font-bold text-sm"
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-teal-400" />
+                <span>Landlord Dashboard</span>
+              </div>
+            </Link>
+          )}
+
           {isAdmin && (
             <Link
               href="/admin"
@@ -217,20 +238,18 @@ export default function Navbar({
             </button>
           )}
 
-          {isLandlordOrAdmin && (
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onOpenPostProperty();
-              }}
-              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm"
-            >
-              <div className="flex items-center gap-3">
-                <PlusCircle className="w-5 h-5" />
-                <span>{isAdmin ? "Post Room (Free Admin)" : "Post Room (GH₵ 30.00)"}</span>
-              </div>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              onOpenPostProperty();
+            }}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm"
+          >
+            <div className="flex items-center gap-3">
+              <PlusCircle className="w-5 h-5" />
+              <span>{isAdmin ? "Post Room (Free Admin)" : "Post Room (GH₵ 30.00)"}</span>
+            </div>
+          </button>
 
           {user ? (
             <div className="pt-4 border-t border-slate-800 space-y-3">

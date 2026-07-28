@@ -13,6 +13,12 @@ export async function GET(request: Request) {
     const maxPriceParam = searchParams.get("maxPrice");
     const maxPrice = maxPriceParam ? Number(maxPriceParam) : undefined;
     const area = searchParams.get("area") || undefined;
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const session = token ? await verifySessionToken(token) : null;
+
+    const landlordId = searchParams.get("landlordId") || undefined;
+    const includeInactive = searchParams.get("includeInactive") === "true";
 
     const properties = await getProperties({
       search,
@@ -21,6 +27,8 @@ export async function GET(request: Request) {
       minLeasePeriod,
       maxPrice,
       area,
+      landlordId,
+      includeInactive,
     });
 
     return NextResponse.json({ properties });

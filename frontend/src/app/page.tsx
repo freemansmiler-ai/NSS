@@ -24,7 +24,8 @@ import {
   X,
   Building2,
   Lock,
-  ArrowRight
+  ArrowRight,
+  PlusCircle
 } from "lucide-react";
 
 export default function HomePage() {
@@ -111,7 +112,7 @@ export default function HomePage() {
 
       const res = await fetch(`/api/properties?${queryParams.toString()}`);
       const data = await res.json();
-      if (data.properties && Array.isArray(data.properties) && data.properties.length > 0) {
+      if (data.properties && Array.isArray(data.properties)) {
         setProperties(data.properties);
       } else {
         setProperties(INITIAL_PROPERTIES);
@@ -231,13 +232,21 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-md mx-auto">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-lg mx-auto">
             <button
               onClick={() => setIsAuthOpen(true)}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-teal-500 transition shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm hover:from-emerald-400 hover:to-teal-500 transition shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2"
             >
               <span>Sign In / Create Account</span>
               <ArrowRight className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={handleOpenPostProperty}
+              className="w-full sm:w-auto py-4 px-6 rounded-2xl bg-slate-900 border border-slate-700 text-emerald-400 font-bold text-sm hover:bg-slate-800 transition flex items-center justify-center gap-2"
+            >
+              <PlusCircle className="w-5 h-5 text-emerald-400" />
+              <span>List a Room (GH₵ 30.00)</span>
             </button>
           </div>
 

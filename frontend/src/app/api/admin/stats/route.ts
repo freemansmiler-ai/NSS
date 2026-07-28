@@ -4,10 +4,10 @@ import { verifySessionToken, COOKIE_NAME } from "@/lib/auth";
 import { prisma, getProperties } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const token = cookieStore.get(COOKIE_NAME)?.value || request.headers.get("authorization")?.replace("Bearer ", "");
     const session = token ? await verifySessionToken(token) : null;
 
     if (!session || session.role !== "ADMIN") {

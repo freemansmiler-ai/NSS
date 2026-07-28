@@ -79,6 +79,7 @@ model Property {
   
   paymentRef         String?      // Paystack transaction reference
   lastRenewedAt      DateTime     @default(now())
+  viewsCount         Int          @default(0)
   isActive           Boolean      @default(true)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt

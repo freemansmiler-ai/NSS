@@ -96,7 +96,11 @@ export default function AdminDashboardPage() {
       setCurrentUser(meUser);
 
       try {
-        const statsRes = await fetch("/api/admin/stats");
+        const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const statsRes = await fetch("/api/admin/stats", { headers });
         if (statsRes.ok) {
           const contentType = statsRes.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
@@ -110,9 +114,16 @@ export default function AdminDashboardPage() {
         }
       } catch {}
 
-      // Fallback data if API stats route returns non-JSON or server unavailable
-      setUsers(INITIAL_LANDLORDS.map(l => ({ ...l, isVerified: true, createdAt: new Date().toISOString() })));
-      setProperties(INITIAL_PROPERTIES);
+      // Fallback data from API properties endpoint if stats route unavailable
+      try {
+        const propsRes = await fetch("/api/properties?includeInactive=true");
+        if (propsRes.ok) {
+          const propsData = await propsRes.json();
+          if (propsData.properties && Array.isArray(propsData.properties)) {
+            setProperties(propsData.properties);
+          }
+        }
+      } catch {}
       setStats({
         totalUsers: INITIAL_LANDLORDS.length,
         totalTenants: 0,
@@ -219,6 +230,61 @@ export default function AdminDashboardPage() {
       p.generalArea.toLowerCase().includes(propSearch.toLowerCase()) ||
       p.exactGhanaPostGps.toLowerCase().includes(propSearch.toLowerCase())
   );
+
+  const handleToggleDelistProperty = async (propertyId: string, currentActive: boolean) => {
+    const nextStatus = !currentActive;
+    const actionLabel = nextStatus ? "relist" : "delist";
+    if (!confirm(`Are you sure you want to ${actionLabel} this property listing?`)) return;
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/admin/properties/${propertyId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isActive: nextStatus }),
+      });
+      if (res.ok) {
+        setProperties((prev) =>
+          prev.map((p) => (p.id === propertyId ? { ...p, isActive: nextStatus } : p))
+        );
+      } else {
+        const data = await res.json();
+        alert(data.error || `Failed to ${actionLabel} property.`);
+      }
+    } catch (err: any) {
+      alert(err.message || "Network error occurred.");
+    }
+  };
+
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this room listing from the database?")) return;
+
+    // Optimistically remove from state for snappy UX response
+    setProperties((prev) => prev.filter((p) => p.id !== propertyId));
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/admin/properties/${propertyId}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to delete property.");
+        // Reload data if server call failed
+        loadAdminData();
+      }
+    } catch {
+      // Keep optimistic delete applied locally
+    }
+  };
 
   if (loading) {
     return (
@@ -677,6 +743,8 @@ export default function AdminDashboardPage() {
                       <th className="p-4">GhanaPostGPS</th>
                       <th className="p-4">Tag</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4">Admin Moderation</th>
+                      <th className="p-4 text-right">Delete</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
@@ -712,8 +780,30 @@ export default function AdminDashboardPage() {
                         </td>
                         <td className="p-4">
                           <Badge variant={prop.isActive ? "default" : "secondary"}>
-                            {prop.isActive ? "Active (Valid)" : "Needs Renewal"}
+                            {prop.isActive ? "Active (Listed)" : "Delisted"}
                           </Badge>
+                        </td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => handleToggleDelistProperty(prop.id, Boolean(prop.isActive))}
+                            className={`px-3 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 ${
+                              prop.isActive
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30"
+                                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30"
+                            }`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>{prop.isActive ? "Delist Room" : "Relist Room"}</span>
+                          </button>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleDeleteProperty(prop.id)}
+                            className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition"
+                            title="Permanently Delete Listing"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     ))}
