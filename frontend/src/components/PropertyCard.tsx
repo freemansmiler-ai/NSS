@@ -1,5 +1,7 @@
 "use client";
 
+// Force redeploy after image debugging
+
 import { useState } from "react";
 import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
