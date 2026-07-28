@@ -1,8 +1,5 @@
 "use client";
 
-
-// Force redeploy after image debugging
-
 import { useState } from "react";
 import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
@@ -31,7 +28,7 @@ interface PropertyCardProps {
   onUnlockSuccess?: (updatedUser: UserSession) => void;
 }
 
-const PAYSTACK_PUBLIC_KEY = "pk_test_e58c19239890c021e8d0f7b6ded1cc22d4fa7982";
+const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_KEY;
 
 export default function PropertyCard({
   property,
@@ -41,9 +38,6 @@ export default function PropertyCard({
   onOpenVerification,
   onUnlockSuccess,
 }: PropertyCardProps) {
-    console.log("PROPERTY CARD IMAGE:", property.title, property.images);
-  console.log("PROPERTY DATA:", property);
-console.log("IMAGE URL:", property.images);
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
 
