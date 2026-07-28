@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, getUserUnlockedProperties } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
 export async function POST(request: Request) {
@@ -22,6 +22,11 @@ export async function POST(request: Request) {
         const isValid = await verifyPassword(password, user.password);
         if (isValid) {
           const userRole = user.role as any;
+          const dbUnlocked: string[] = Array.isArray((user as any).unlockedPropertyIds) ? (user as any).unlockedPropertyIds : [];
+          const persistentUnlocked = getUserUnlockedProperties(user.id);
+          const persistentEmailUnlocked = getUserUnlockedProperties(user.email);
+          const unlockedPropertyIds = Array.from(new Set([...dbUnlocked, ...persistentUnlocked, ...persistentEmailUnlocked]));
+
           const sessionData = {
             userId: user.id,
             email: user.email,
@@ -30,7 +35,8 @@ export async function POST(request: Request) {
             role: userRole,
             isPhoneVerified: user.isPhoneVerified,
             isVerified: (user as any).isVerified || false,
-            isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked),
+            isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked) || unlockedPropertyIds.length > 0,
+            unlockedPropertyIds,
           };
 
           const token = await createSessionToken(sessionData);
@@ -67,8 +73,14 @@ export async function POST(request: Request) {
         ? "LANDLORD"
         : "TENANT";
 
+      const demoUserId = demoLandlord ? demoLandlord.id : `usr-${email.replace(/[^a-zA-Z0-9]/g, "")}`;
+      const persistentUnlocked = Array.from(new Set([
+        ...getUserUnlockedProperties(demoUserId),
+        ...getUserUnlockedProperties(email)
+      ]));
+
       const u = {
-        userId: demoLandlord ? demoLandlord.id : `usr-${Date.now()}`,
+        userId: demoUserId,
         email: demoLandlord ? demoLandlord.email : email,
         fullName: demoLandlord ? demoLandlord.fullName : email.split("@")[0].toUpperCase(),
         phoneNumber: demoLandlord ? demoLandlord.phoneNumber : "+233 24 000 0000",
@@ -76,6 +88,7 @@ export async function POST(request: Request) {
         isPhoneVerified: true,
         isVerified: true,
         isUnlocked: true,
+        unlockedPropertyIds: persistentUnlocked,
       };
 
       const token = await createSessionToken(u);

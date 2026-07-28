@@ -170,6 +170,14 @@ export default function HomePage() {
 
       const matchesPrice = p.pricePerMonth <= maxPrice;
 
+      if (user?.role === "LANDLORD") {
+        const isOwner =
+          p.landlordId === user.userId ||
+          p.landlord?.email === user.email ||
+          p.landlord?.id === user.userId;
+        if (!isOwner) return false;
+      }
+
       return matchesSearch && matchesType && matchesFacility && matchesLease && matchesPrice;
     });
 

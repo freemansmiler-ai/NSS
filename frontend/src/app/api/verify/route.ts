@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSessionToken, getSessionFromRequest, COOKIE_NAME } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { prisma, saveUserUnlockedProperty } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
@@ -18,19 +18,30 @@ export async function POST(request: Request) {
         );
       }
 
+      const userKey = session?.userId || session?.email || "guest-tenant";
+      let persistentUnlockedIds: string[] = [];
+
+      if (propertyId) {
+        persistentUnlockedIds = saveUserUnlockedProperty(userKey, propertyId);
+        if (session?.email) {
+          saveUserUnlockedProperty(session.email, propertyId);
+        }
+      }
+
       const existingUnlockedIds: string[] = Array.isArray(session?.unlockedPropertyIds)
         ? session.unlockedPropertyIds
         : [];
 
-      const newUnlockedIds = propertyId
-        ? Array.from(new Set([...existingUnlockedIds, propertyId]))
-        : existingUnlockedIds;
+      const newUnlockedIds = Array.from(new Set([...existingUnlockedIds, ...persistentUnlockedIds, ...(propertyId ? [propertyId] : [])]));
 
       if (session) {
         try {
           await prisma.user.update({
             where: { id: session.userId },
-            data: { isUnlocked: true } as any,
+            data: {
+              isUnlocked: true,
+              unlockedPropertyIds: newUnlockedIds,
+            } as any,
           });
         } catch {}
       }
@@ -49,7 +60,7 @@ export async function POST(request: Request) {
             isPhoneVerified: true,
             isVerified: true,
             isUnlocked: true,
-            unlockedPropertyIds: propertyId ? [propertyId] : [],
+            unlockedPropertyIds: newUnlockedIds,
           };
 
       const newToken = await createSessionToken(updatedSession);

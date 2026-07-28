@@ -17,8 +17,13 @@ export async function GET(request: Request) {
     const token = cookieStore.get(COOKIE_NAME)?.value;
     const session = token ? await verifySessionToken(token) : null;
 
-    const landlordId = searchParams.get("landlordId") || undefined;
-    const includeInactive = searchParams.get("includeInactive") === "true";
+    let landlordId = searchParams.get("landlordId") || undefined;
+    let includeInactive = searchParams.get("includeInactive") === "true";
+
+    if (session?.role === "LANDLORD") {
+      landlordId = session.userId;
+      includeInactive = true;
+    }
 
     const properties = await getProperties({
       search,

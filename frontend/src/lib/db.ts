@@ -15,6 +15,7 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 const PERSIST_FILE = path.join(process.cwd(), "properties-cache.json");
 const DELETED_FILE = path.join(process.cwd(), "deleted-properties.json");
+const UNLOCKS_FILE = path.join(process.cwd(), "user-unlocks.json");
 
 function loadDeletedIds(): Set<string> {
   try {
@@ -34,6 +35,42 @@ function saveDeletedIds(deletedSet: Set<string>) {
 }
 
 let deletedPropertyIds: Set<string> = loadDeletedIds();
+
+function loadUserUnlocksStore(): Record<string, string[]> {
+  try {
+    if (fs.existsSync(UNLOCKS_FILE)) {
+      const data = fs.readFileSync(UNLOCKS_FILE, "utf-8");
+      return JSON.parse(data) || {};
+    }
+  } catch {}
+  return {};
+}
+
+function saveUserUnlocksStore(store: Record<string, string[]>) {
+  try {
+    fs.writeFileSync(UNLOCKS_FILE, JSON.stringify(store, null, 2), "utf-8");
+  } catch {}
+}
+
+let userUnlocksStore = loadUserUnlocksStore();
+
+export function getUserUnlockedProperties(userIdentifier: string): string[] {
+  if (!userIdentifier) return [];
+  const list = userUnlocksStore[userIdentifier] || [];
+  return list.filter((id) => !deletedPropertyIds.has(id));
+}
+
+export function saveUserUnlockedProperty(userIdentifier: string, propertyId: string): string[] {
+  if (!userIdentifier || !propertyId) return [];
+  const existing = userUnlocksStore[userIdentifier] || [];
+  if (!existing.includes(propertyId)) {
+    existing.push(propertyId);
+  }
+  const cleanList = Array.from(new Set(existing)).filter((id) => !deletedPropertyIds.has(id));
+  userUnlocksStore[userIdentifier] = cleanList;
+  saveUserUnlocksStore(userUnlocksStore);
+  return cleanList;
+}
 
 function loadLocalStore(): PropertyData[] {
   try {

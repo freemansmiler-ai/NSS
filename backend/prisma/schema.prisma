@@ -39,6 +39,7 @@ model User {
   isPhoneVerified Boolean  @default(false)
   isVerified      Boolean  @default(false) // Admin verified status for both tenants and landlords
   isUnlocked      Boolean  @default(false) // Tenant contact/GPS unlock status via GHc 20.00 Paystack fee
+  unlockedPropertyIds String[] @default([]) // Array of property IDs unlocked by tenant
   role            Role     @default(TENANT)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
