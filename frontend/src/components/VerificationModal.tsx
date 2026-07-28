@@ -92,7 +92,7 @@ export default function VerificationModal({
             <p className="font-semibold text-slate-200">How User Verification Works:</p>
             <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-400">
               <li>Admins inspect user accounts (Tenants and Landlords) and click <strong className="text-emerald-400">Verify</strong>.</li>
-              <li>SMS verification requirements have been replaced by direct Admin account verification.</li>
+              <li>Verification requires direct Admin account verification.</li>
               <li>Landlords pay GH₵ 30.00 via Paystack when posting a room listing (active for 90 days).</li>
             </ul>
           </div>

@@ -27,7 +27,7 @@ const AVAILABLE_AMENITIES = [
   "Shared ECG Meter"
 ];
 
-const PAYSTACK_PUBLIC_KEY = "pk_test_e58c19239890c021e8d0f7b6ded1cc22d4fa7982";
+import { openPaystackPopup } from "@/lib/paystack";
 
 export default function LandlordPostModal({
   isOpen,
@@ -181,54 +181,22 @@ export default function LandlordPostModal({
     }
 
     // Otherwise, Landlord pays GHc 30.00 via Paystack
-    const loaded = await loadPaystackScript();
-    if (!loaded) {
-      setError("Failed to load Paystack inline SDK. Check your internet connection.");
-      setLoading(false);
-      return;
-    }
-
-    const paystackPop = (window as any).PaystackPop;
-    const ref = "NSS_PROP_" + Math.floor(Math.random() * 1000000000 + 1);
     const email = currentUser?.email || "landlord@nssdirectstay.gh";
 
-    try {
-      if (paystackPop && typeof paystackPop.setup === "function") {
-        const handler = paystackPop.setup({
-          key: PAYSTACK_PUBLIC_KEY,
-          email,
-          amount: 3000, // GH₵ 30.00 in pesewas
-          currency: "GHS",
-          ref,
-          callback: async (response: any) => {
-            await submitListingToBackend(response.reference || response.trxref || ref);
-          },
-          onClose: () => {
-            setLoading(false);
-            setError("Paystack payment cancelled. Payment of GH₵ 30.00 is required to publish room.");
-          },
-        });
-        handler.openIframe();
-      } else {
-        const paystack = new paystackPop();
-        paystack.newTransaction({
-          key: PAYSTACK_PUBLIC_KEY,
-          email,
-          amount: 3000,
-          currency: "GHS",
-          ref,
-          onSuccess: async (transaction: any) => {
-            await submitListingToBackend(transaction.reference || ref);
-          },
-          onCancel: () => {
-            setLoading(false);
-            setError("Paystack payment cancelled. Payment of GH₵ 30.00 is required to publish room.");
-          },
-        });
-      }
-    } catch (err: any) {
-      console.error("Paystack post error:", err);
-      setError("Could not launch Paystack checkout. Please try again.");
+    const opened = await openPaystackPopup({
+      email,
+      amount: 3000, // GH₵ 30.00 in pesewas
+      onSuccess: async (ref) => {
+        await submitListingToBackend(ref);
+      },
+      onClose: () => {
+        setLoading(false);
+        setError("Paystack payment cancelled. Payment of GH₵ 30.00 is required to publish room.");
+      },
+    });
+
+    if (!opened) {
+      setError("Failed to load Paystack inline SDK. Please check your internet connection.");
       setLoading(false);
     }
   };

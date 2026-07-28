@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const session = await getSessionFromRequest(request);
 
     const body = await request.json();
-    const { action, phoneNumber, code, paymentRef } = body;
+    const { action, phoneNumber, code, paymentRef, propertyId } = body;
 
     if (action === "UNLOCK_CONTACTS") {
       if (!paymentRef) {
@@ -17,6 +17,14 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      const existingUnlockedIds: string[] = Array.isArray(session?.unlockedPropertyIds)
+        ? session.unlockedPropertyIds
+        : [];
+
+      const newUnlockedIds = propertyId
+        ? Array.from(new Set([...existingUnlockedIds, propertyId]))
+        : existingUnlockedIds;
 
       if (session) {
         try {
@@ -28,7 +36,11 @@ export async function POST(request: Request) {
       }
 
       const updatedSession = session
-        ? { ...session, isUnlocked: true }
+        ? {
+            ...session,
+            isUnlocked: true,
+            unlockedPropertyIds: newUnlockedIds,
+          }
         : {
             userId: `usr-unlocked-${Date.now()}`,
             email: "tenant@nssdirectstay.gh",
@@ -37,6 +49,7 @@ export async function POST(request: Request) {
             isPhoneVerified: true,
             isVerified: true,
             isUnlocked: true,
+            unlockedPropertyIds: propertyId ? [propertyId] : [],
           };
 
       const newToken = await createSessionToken(updatedSession);
@@ -51,7 +64,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "GhanaPostGPS address, Call line, WhatsApp, Street address & Interactive map unlocked successfully!",
+        message: "Property contacts unlocked successfully!",
         user: updatedSession,
         token: newToken,
       });

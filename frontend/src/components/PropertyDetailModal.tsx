@@ -4,6 +4,7 @@ import { useState } from "react";
 import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
 import { WorkplaceHotspot, analyzeCommute } from "@/lib/haversine";
+import { openPaystackPopup } from "@/lib/paystack";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import DynamicMap from "./DynamicMap";
@@ -31,8 +32,6 @@ interface PropertyDetailModalProps {
   onUnlockSuccess?: (updatedUser: UserSession) => void;
 }
 
-const PAYSTACK_PUBLIC_KEY = "pk_test_e58c19239890c021e8d0f7b6ded1cc22d4fa7982";
-
 export default function PropertyDetailModal({
   property,
   user,
@@ -45,9 +44,13 @@ export default function PropertyDetailModal({
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
 
-  if (!property) return null;
+  if (!isOpen || !property) return null;
 
-  const isUnlocked = Boolean(user?.isUnlocked || user?.role === "LANDLORD" || user?.role === "ADMIN");
+  const isUnlocked = Boolean(
+    user?.role === "LANDLORD" ||
+    user?.role === "ADMIN" ||
+    (property.id && user?.unlockedPropertyIds?.includes(property.id))
+  );
 
   const handleCopyGps = () => {
     if (!isUnlocked) return;
@@ -56,31 +59,8 @@ export default function PropertyDetailModal({
     setTimeout(() => setCopiedGps(false), 2000);
   };
 
-  const loadPaystackScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).PaystackPop) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://js.paystack.co/v1/inline.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const handleUnlockPayment = async () => {
     setUnlockLoading(true);
-    const loaded = await loadPaystackScript();
-    if (!loaded) {
-      alert("Failed to load Paystack payment gateway. Please check your internet connection.");
-      setUnlockLoading(false);
-      return;
-    }
-
-    const paystackPop = (window as any).PaystackPop;
-    const ref = "NSS_UNLOCK_" + Math.floor(Math.random() * 1000000000 + 1);
     const email = user?.email || "tenant@nssdirectstay.gh";
 
     const handleSuccessCallback = async (reference: string) => {
@@ -95,6 +75,7 @@ export default function PropertyDetailModal({
           body: JSON.stringify({
             action: "UNLOCK_CONTACTS",
             paymentRef: reference,
+            propertyId: property.id,
           }),
         });
         const data = await res.json();
@@ -103,6 +84,9 @@ export default function PropertyDetailModal({
             localStorage.setItem("nss_token", data.token);
           } catch {}
         }
+        const currentUnlocked = Array.isArray(user?.unlockedPropertyIds) ? user.unlockedPropertyIds : [];
+        const updatedUnlockedIds = Array.from(new Set([...currentUnlocked, property.id]));
+
         const unlockedUser = data.user || {
           userId: user?.userId || `usr-${Date.now()}`,
           email: user?.email || "tenant@nssdirectstay.gh",
@@ -111,6 +95,7 @@ export default function PropertyDetailModal({
           isPhoneVerified: true,
           isVerified: true,
           isUnlocked: true,
+          unlockedPropertyIds: updatedUnlockedIds,
         };
         if (onUnlockSuccess) {
           onUnlockSuccess(unlockedUser);
@@ -122,41 +107,15 @@ export default function PropertyDetailModal({
       }
     };
 
-    try {
-      if (paystackPop && typeof paystackPop.setup === "function") {
-        const handler = paystackPop.setup({
-          key: PAYSTACK_PUBLIC_KEY,
-          email,
-          amount: 2000, // GH₵ 20.00 in pesewas
-          currency: "GHS",
-          ref,
-          callback: (response: any) => {
-            handleSuccessCallback(response.reference || response.trxref || ref);
-          },
-          onClose: () => {
-            setUnlockLoading(false);
-          },
-        });
-        handler.openIframe();
-      } else {
-        const paystack = new paystackPop();
-        paystack.newTransaction({
-          key: PAYSTACK_PUBLIC_KEY,
-          email,
-          amount: 2000,
-          currency: "GHS",
-          ref,
-          onSuccess: (transaction: any) => {
-            handleSuccessCallback(transaction.reference || ref);
-          },
-          onCancel: () => {
-            setUnlockLoading(false);
-          },
-        });
-      }
-    } catch (err: any) {
-      console.error("Paystack popup error:", err);
-      alert("Could not initialize Paystack inline window. Please try again.");
+    const opened = await openPaystackPopup({
+      email,
+      amount: 2000, // GH₵ 20.00 in pesewas
+      onSuccess: (ref) => handleSuccessCallback(ref),
+      onClose: () => setUnlockLoading(false),
+    });
+
+    if (!opened) {
+      alert("Failed to initialize Paystack payment gateway. Please check your internet connection.");
       setUnlockLoading(false);
     }
   };

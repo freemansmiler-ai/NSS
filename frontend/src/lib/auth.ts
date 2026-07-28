@@ -17,6 +17,7 @@ export interface UserSession {
   isPhoneVerified: boolean;
   isVerified: boolean;
   isUnlocked: boolean;
+  unlockedPropertyIds?: string[];
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -40,6 +41,7 @@ export async function createSessionToken(user: UserSession): Promise<string> {
     isPhoneVerified: user.isPhoneVerified,
     isVerified: Boolean(user.isVerified),
     isUnlocked: Boolean(user.isUnlocked),
+    unlockedPropertyIds: user.unlockedPropertyIds || [],
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -61,6 +63,7 @@ export async function verifySessionToken(token: string): Promise<UserSession | n
       isPhoneVerified: Boolean(payload.isPhoneVerified),
       isVerified: Boolean(payload.isVerified),
       isUnlocked: Boolean(payload.isUnlocked),
+      unlockedPropertyIds: Array.isArray(payload.unlockedPropertyIds) ? (payload.unlockedPropertyIds as string[]) : [],
     };
   } catch {
     return null;
