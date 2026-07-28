@@ -1,0 +1,43 @@
+[
+  {
+    "id": "usr-1785260089122",
+    "email": "test@gmail.com",
+    "password": "$2b$10$Cv7ir0MaxpeDvAqZLU2zYev/F0ATAhHizyD0xwo6s7aVCm4H8fYae",
+    "fullName": "test",
+    "phoneNumber": "024563695",
+    "role": "TENANT",
+    "isVerified": false
+  },
+  {
+    "id": "landlord-1",
+    "email": "kwame.mensah@nssdirectstay.gh",
+    "fullName": "Chief Kwame Mensah",
+    "phoneNumber": "+233 24 412 3456",
+    "role": "LANDLORD",
+    "isVerified": true
+  },
+  {
+    "id": "landlord-2",
+    "email": "abena.owusu@nssdirectstay.gh",
+    "fullName": "Mad. Abena Owusu",
+    "phoneNumber": "+233 20 890 1234",
+    "role": "LANDLORD",
+    "isVerified": true
+  },
+  {
+    "id": "landlord-3",
+    "email": "kofi.appiah@nssdirectstay.gh",
+    "fullName": "Mr. Kofi Appiah",
+    "phoneNumber": "+233 27 555 6789",
+    "role": "LANDLORD",
+    "isVerified": true
+  },
+  {
+    "id": "landlord-4",
+    "email": "grace.tagoe@nssdirectstay.gh",
+    "fullName": "Auntie Grace Tagoe",
+    "phoneNumber": "+233 24 333 9988",
+    "role": "LANDLORD",
+    "isVerified": true
+  }
+]

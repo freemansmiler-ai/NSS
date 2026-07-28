@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
-import { prisma, getUserUnlockedProperties } from "@/lib/db";
+import { prisma, getUserUnlockedProperties, findUserByEmail } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await findUserByEmail(email);
       if (user) {
         const isValid = await verifyPassword(password, user.password);
         if (isValid) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
             fullName: user.fullName,
             phoneNumber: user.phoneNumber || undefined,
             role: userRole,
-            isPhoneVerified: user.isPhoneVerified,
+            isPhoneVerified: user.isPhoneVerified ?? true,
             isVerified: (user as any).isVerified || false,
             isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked) || unlockedPropertyIds.length > 0,
             unlockedPropertyIds,
@@ -52,9 +52,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ user: sessionData, token });
         }
       }
-    } catch {
-      // In dev fallback
-    }
+    } catch {}
 
     // Demo fallback login check
     const demoLandlord = INITIAL_LANDLORDS.find((l) => l.email === email);

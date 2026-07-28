@@ -1,6 +1,7 @@
 export interface UserData {
   id: string;
   email: string;
+  password?: string;
   fullName: string;
   phoneNumber: string;
   role: "TENANT" | "LANDLORD" | "ADMIN";

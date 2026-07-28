@@ -92,7 +92,134 @@ function saveLocalStore(store: PropertyData[]) {
 }
 
 let localPropertiesStore: PropertyData[] = loadLocalStore();
-let localUsersStore: UserData[] = [...INITIAL_LANDLORDS];
+
+const USERS_FILE = path.join(process.cwd(), "users-cache.json");
+
+function loadUsersStore(): UserData[] {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = fs.readFileSync(USERS_FILE, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return [...INITIAL_LANDLORDS];
+}
+
+function saveUsersStore(store: UserData[]) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(store, null, 2), "utf-8");
+  } catch {}
+}
+
+let localUsersStore: UserData[] = loadUsersStore();
+
+export async function createUserRecord(data: {
+  email: string;
+  password?: string;
+  fullName: string;
+  phoneNumber?: string;
+  role: "TENANT" | "LANDLORD" | "ADMIN";
+  isPhoneVerified?: boolean;
+  isVerified?: boolean;
+  isUnlocked?: boolean;
+}): Promise<any> {
+  const cleanEmail = data.email.toLowerCase().trim();
+  const phone = data.phoneNumber && data.phoneNumber.trim() !== ""
+    ? data.phoneNumber
+    : `+233${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+  try {
+    const created = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        password: data.password || "password123",
+        fullName: data.fullName,
+        phoneNumber: phone,
+        role: data.role as any,
+        isPhoneVerified: data.isPhoneVerified ?? true,
+        isVerified: data.isVerified ?? false,
+        isUnlocked: data.isUnlocked ?? (data.role === "LANDLORD" || data.role === "ADMIN"),
+      } as any
+    });
+
+    const localUser: UserData = {
+      id: created.id,
+      email: created.email,
+      password: data.password || "password123",
+      fullName: created.fullName,
+      phoneNumber: created.phoneNumber,
+      role: created.role as any,
+      isVerified: (created as any).isVerified ?? false,
+    };
+
+    if (!localUsersStore.some((u) => u.email === cleanEmail)) {
+      localUsersStore.unshift(localUser);
+      saveUsersStore(localUsersStore);
+    }
+    return created;
+  } catch (err: any) {
+    console.error("Prisma createUserRecord error, utilizing fallback storage:", err?.message || err);
+
+    const fallbackId = `usr-${Date.now()}`;
+    const fallbackUser: UserData = {
+      id: fallbackId,
+      email: cleanEmail,
+      password: data.password || "password123",
+      fullName: data.fullName,
+      phoneNumber: phone,
+      role: data.role,
+      isVerified: data.isVerified ?? false,
+    };
+
+    if (!localUsersStore.some((u) => u.email === cleanEmail)) {
+      localUsersStore.unshift(fallbackUser);
+      saveUsersStore(localUsersStore);
+    }
+
+    return {
+      id: fallbackId,
+      email: cleanEmail,
+      password: data.password || "password123",
+      fullName: data.fullName,
+      phoneNumber: phone,
+      role: data.role,
+      isPhoneVerified: true,
+      isVerified: data.isVerified ?? false,
+      isUnlocked: data.isUnlocked ?? (data.role === "LANDLORD" || data.role === "ADMIN"),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+}
+
+export async function findUserByEmail(email: string): Promise<any | null> {
+  const cleanEmail = email.toLowerCase().trim();
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (user) return user;
+  } catch {}
+
+  const local = localUsersStore.find((u) => u.email.toLowerCase() === cleanEmail);
+  if (local) {
+    return {
+      id: local.id,
+      email: local.email,
+      password: local.password || "password123",
+      fullName: local.fullName,
+      phoneNumber: local.phoneNumber,
+      role: local.role,
+      isPhoneVerified: true,
+      isVerified: local.isVerified ?? true,
+      isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
+    };
+  }
+
+  return null;
+}
 
 export function processPropertyLifecycle(prop: PropertyData): { item: PropertyData; shouldDelete: boolean } {
   const now = new Date();

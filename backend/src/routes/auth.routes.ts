@@ -7,7 +7,7 @@ import {
   clearSessionCookie,
   getSessionFromRequest
 } from "../lib/auth.js";
-import { prisma } from "../lib/db.js";
+import { prisma, createUserRecord, findUserByEmail } from "../lib/db.js";
 import { INITIAL_LANDLORDS } from "../lib/sample-data.js";
 
 const router = Router();
@@ -29,7 +29,7 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     try {
-      const user = await prisma.user.findUnique({ where: { email } });
+      const user = await findUserByEmail(email);
 
       if (user) {
         const isValid = await verifyPassword(password, user.password);
@@ -41,20 +41,18 @@ router.post("/login", async (req: Request, res: Response) => {
             fullName: user.fullName,
             phoneNumber: user.phoneNumber || undefined,
             role: userRole,
-            isPhoneVerified: user.isPhoneVerified,
+            isPhoneVerified: user.isPhoneVerified ?? true,
             isVerified: (user as any).isVerified || false,
             isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked),
           };
 
           const token = await createSessionToken(sessionData);
           setSessionCookie(res, token);
-          res.json({ user: sessionData });
+          res.json({ user: sessionData, token });
           return;
         }
       }
-    } catch {
-      // In dev fallback
-    }
+    } catch {}
 
     // Demo landlord fallback check
     const demoLandlord = INITIAL_LANDLORDS.find((l) => l.email === email);
@@ -78,7 +76,7 @@ router.post("/login", async (req: Request, res: Response) => {
 
       const token = await createSessionToken(u);
       setSessionCookie(res, token);
-      res.json({ user: u });
+      res.json({ user: u, token });
       return;
     }
 
@@ -93,60 +91,45 @@ router.post("/register", async (req: Request, res: Response) => {
   try {
     const { email, password, fullName, phoneNumber, role } = req.body;
 
-    if (!email || !password || !fullName || !phoneNumber) {
-      res.status(400).json({ error: "Email, password, full name, and Ghanaian phone number are required." });
+    if (!email || !password || !fullName) {
+      res.status(400).json({ error: "Email, password, and full name are required." });
+      return;
+    }
+
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      res.status(400).json({ error: "An account with this email address already exists. Please log in." });
       return;
     }
 
     const hashedPassword = await hashPassword(password);
     const userRole = role === "LANDLORD" ? "LANDLORD" : "TENANT";
 
-    try {
-      const user = await prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          fullName,
-          phoneNumber,
-          role: userRole,
-          isPhoneVerified: true,
-          isVerified: false,
-          isUnlocked: userRole === "LANDLORD" || (userRole as string) === "ADMIN",
-        },
-      });
+    const user = await createUserRecord({
+      email,
+      password: hashedPassword,
+      fullName,
+      phoneNumber,
+      role: userRole,
+      isPhoneVerified: true,
+      isVerified: false,
+      isUnlocked: userRole === "LANDLORD",
+    });
 
-      const sessionData = {
-        userId: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        phoneNumber: user.phoneNumber,
-        role: user.role as any,
-        isPhoneVerified: true,
-        isVerified: false,
-        isUnlocked: userRole === "LANDLORD" || (userRole as string) === "ADMIN",
-      };
+    const sessionData = {
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      phoneNumber: user.phoneNumber,
+      role: user.role as any,
+      isPhoneVerified: true,
+      isVerified: user.isVerified || false,
+      isUnlocked: userRole === "LANDLORD",
+    };
 
-      const token = await createSessionToken(sessionData);
-      setSessionCookie(res, token);
-      res.json({ user: sessionData });
-      return;
-    } catch {
-      // Dev fallback mode
-      const simulatedUser = {
-        userId: `usr-${Date.now()}`,
-        email,
-        fullName,
-        phoneNumber: phoneNumber || "+233240000000",
-        role: userRole as any,
-        isPhoneVerified: true,
-        isVerified: false,
-        isUnlocked: userRole === "LANDLORD" || (userRole as string) === "ADMIN",
-      };
-
-      const token = await createSessionToken(simulatedUser);
-      setSessionCookie(res, token);
-      res.json({ user: simulatedUser });
-    }
+    const token = await createSessionToken(sessionData);
+    setSessionCookie(res, token);
+    res.json({ user: sessionData, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to register user." });
   }
