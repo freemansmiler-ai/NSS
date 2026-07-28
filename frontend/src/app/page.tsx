@@ -63,25 +63,34 @@ export default function HomePage() {
     } else {
       try {
         localStorage.removeItem("nss_user");
+        localStorage.removeItem("nss_token");
       } catch {}
     }
   };
 
-  // Check current auth session with localStorage fallback
+  // Check current auth session with Bearer token & localStorage fallback
   useEffect(() => {
+    let hasLocalUser = false;
     try {
       const savedUser = localStorage.getItem("nss_user");
       if (savedUser) {
         setUser(JSON.parse(savedUser));
+        hasLocalUser = true;
       }
     } catch {}
 
-    fetch("/api/auth/me")
+    const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    fetch("/api/auth/me", { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {
           handleUpdateUser(data.user);
-        } else {
+        } else if (!hasLocalUser) {
           handleUpdateUser(null);
         }
       })
@@ -89,9 +98,8 @@ export default function HomePage() {
       .finally(() => setAuthChecked(true));
   }, []);
 
-  // Fetch properties from backend API (authenticated)
+  // Fetch properties from backend API (authenticated or guest)
   const loadProperties = async () => {
-    if (!user) return;
     setLoading(true);
     try {
       const queryParams = new URLSearchParams();
@@ -103,20 +111,20 @@ export default function HomePage() {
 
       const res = await fetch(`/api/properties?${queryParams.toString()}`);
       const data = await res.json();
-      if (data.properties) {
+      if (data.properties && Array.isArray(data.properties) && data.properties.length > 0) {
         setProperties(data.properties);
+      } else {
+        setProperties(INITIAL_PROPERTIES);
       }
     } catch {
-      // Retain existing properties state
+      setProperties(INITIAL_PROPERTIES);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
-      loadProperties();
-    }
+    loadProperties();
   }, [searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice, user]);
 
   const handleLogout = async () => {

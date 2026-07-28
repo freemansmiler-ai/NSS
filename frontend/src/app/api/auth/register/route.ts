@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         maxAge: 60 * 60 * 24 * 30,
       });
 
-      return NextResponse.json({ user: sessionData });
+      return NextResponse.json({ user: sessionData, token });
     } catch {
       // Dev fallback mode
       const simulatedUser = {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         maxAge: 60 * 60 * 24 * 30,
       });
 
-      return NextResponse.json({ user: simulatedUser });
+      return NextResponse.json({ user: simulatedUser, token });
     }
   } catch (err: any) {
     return NextResponse.json(

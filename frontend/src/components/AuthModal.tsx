@@ -56,6 +56,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         throw new Error(data.error || "Authentication failed.");
       }
 
+      if (data.token) {
+        try {
+          localStorage.setItem("nss_token", data.token);
+        } catch {}
+      }
+
       onSuccess(data.user);
       onClose();
     } catch (err: any) {

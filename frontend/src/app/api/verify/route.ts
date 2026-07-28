@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifySessionToken, createSessionToken, COOKIE_NAME } from "@/lib/auth";
+import { createSessionToken, getSessionFromRequest, COOKIE_NAME } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
-    const session = token ? await verifySessionToken(token) : null;
+    const session = await getSessionFromRequest(request);
 
     const body = await request.json();
     const { action, phoneNumber, code, paymentRef } = body;
@@ -42,6 +40,7 @@ export async function POST(request: Request) {
           };
 
       const newToken = await createSessionToken(updatedSession);
+      const cookieStore = await cookies();
       cookieStore.set(COOKIE_NAME, newToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -54,6 +53,7 @@ export async function POST(request: Request) {
         success: true,
         message: "GhanaPostGPS address, Call line, WhatsApp, Street address & Interactive map unlocked successfully!",
         user: updatedSession,
+        token: newToken,
       });
     }
 

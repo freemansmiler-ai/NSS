@@ -89,6 +89,27 @@ export async function getSessionCookie(): Promise<UserSession | null> {
   }
 }
 
+export async function getSessionFromRequest(request: Request): Promise<UserSession | null> {
+  try {
+    const authHeader = request.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const bearerToken = authHeader.substring(7);
+      const sessionFromHeader = await verifySessionToken(bearerToken);
+      if (sessionFromHeader) return sessionFromHeader;
+    }
+  } catch {}
+
+  try {
+    const cookieStore = await cookies();
+    const cookieToken = cookieStore.get(COOKIE_NAME)?.value;
+    if (cookieToken) {
+      return await verifySessionToken(cookieToken);
+    }
+  } catch {}
+
+  return null;
+}
+
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);

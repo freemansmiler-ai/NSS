@@ -85,15 +85,24 @@ export default function PropertyCard({
 
     const handleSuccessCallback = async (reference: string) => {
       try {
+        const token = localStorage.getItem("nss_token");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const res = await fetch("/api/verify", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             action: "UNLOCK_CONTACTS",
             paymentRef: reference,
           }),
         });
         const data = await res.json();
+        if (data.token) {
+          try {
+            localStorage.setItem("nss_token", data.token);
+          } catch {}
+        }
         const unlockedUser = data.user || {
           userId: user?.userId || `usr-${Date.now()}`,
           email: user?.email || "tenant@nssdirectstay.gh",
