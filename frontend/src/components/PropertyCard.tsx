@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
 import { WorkplaceHotspot, analyzeCommute } from "@/lib/haversine";
 import { openPaystackPopup } from "@/lib/paystack";
+import { isFavoriteId, toggleFavoriteId } from "@/lib/favorites";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,7 +18,8 @@ import {
   Layers,
   CalendarCheck,
   Sparkles,
-  Lock
+  Lock,
+  Heart
 } from "lucide-react";
 
 interface PropertyCardProps {
@@ -41,6 +43,21 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    setIsFav(isFavoriteId(property.id));
+    const handleFavUpdate = () => {
+      setIsFav(isFavoriteId(property.id));
+    };
+    window.addEventListener("nss_favorites_updated", handleFavUpdate);
+    return () => window.removeEventListener("nss_favorites_updated", handleFavUpdate);
+  }, [property.id]);
+
+  const handleToggleFav = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavoriteId(property.id);
+  };
 
   const isUnlocked = Boolean(
     user?.role === "LANDLORD" ||
@@ -146,10 +163,11 @@ export default function PropertyCard({
     `Hello! I saw your listing "${property.title}" on NSS DirectStay. Is it still available for NSP rental?`
   );
 
-  const isNewlyListed =
-    property.isNewlyListed !== undefined
-      ? property.isNewlyListed
-      : (new Date().getTime() - new Date(property.createdAt).getTime()) / (1000 * 60 * 60 * 24) <= 7;
+  const hoursSinceCreation = property.createdAt
+    ? (new Date().getTime() - new Date(property.createdAt).getTime()) / (1000 * 60 * 60)
+    : 999;
+
+  const isNew48h = hoursSinceCreation <= 48 || property.isNewlyListed === true;
 
   return (
     <Card
@@ -173,19 +191,29 @@ export default function PropertyCard({
           {/* Top Badges */}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
             <div className="flex items-center gap-1.5">
-              {isNewlyListed && (
-                <span className="bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-xl shadow-lg border border-emerald-400/50 flex items-center gap-1 animate-pulse">
+              {isNew48h && (
+                <span className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-xl shadow-lg border border-emerald-400/50 flex items-center gap-1 animate-pulse">
                   <Sparkles className="w-3 h-3 fill-slate-950" />
-                  Newly Listed
+                  New Listing
                 </span>
               )}
               <Badge variant="default" className="backdrop-blur-md shadow-md">
                 {propertyTypeLabel}
               </Badge>
             </div>
-            <span className="bg-slate-950/80 backdrop-blur-md text-emerald-400 font-extrabold text-sm px-3 py-1 rounded-xl border border-emerald-500/40 shadow-lg">
-              GH₵ {property.pricePerMonth} <span className="text-[10px] text-slate-300 font-normal">/mo</span>
-            </span>
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={handleToggleFav}
+                className="p-2 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-800 text-slate-300 hover:scale-110 active:scale-95 transition shadow-lg"
+                title={isFav ? "Remove from Saved Rooms" : "Save to Favorites"}
+                aria-label={isFav ? "Remove from Saved Rooms" : "Save to Favorites"}
+              >
+                <Heart className={`w-4 h-4 transition ${isFav ? "text-rose-500 fill-rose-500" : "text-slate-400 hover:text-rose-400"}`} />
+              </button>
+              <span className="bg-slate-950/80 backdrop-blur-md text-emerald-400 font-extrabold text-sm px-3 py-1 rounded-xl border border-emerald-500/40 shadow-lg">
+                GH₵ {property.pricePerMonth} <span className="text-[10px] text-slate-300 font-normal">/mo</span>
+              </span>
+            </div>
           </div>
 
           {/* Bottom Overlay Badges */}

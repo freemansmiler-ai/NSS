@@ -5,6 +5,8 @@ import { UserSession } from "@/lib/auth";
 import { PropertyData } from "@/lib/sample-data";
 import { Badge } from "@/components/ui/badge";
 import LandlordPostModal from "@/components/LandlordPostModal";
+import Landlord30DayChart from "@/components/Landlord30DayChart";
+import ContactSupportModal from "@/components/ContactSupportModal";
 import Navbar from "@/components/Navbar";
 import { openPaystackPopup } from "@/lib/paystack";
 import {
@@ -25,7 +27,9 @@ import {
   SlidersHorizontal,
   Lock,
   Phone,
-  MessageSquare
+  MessageSquare,
+  Trash2,
+  Headphones
 } from "lucide-react";
 import Link from "next/link";
 
@@ -37,6 +41,7 @@ export default function LandlordDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [isPostRoomOpen, setIsPostRoomOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [renewingId, setRenewingId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
@@ -140,6 +145,33 @@ export default function LandlordDashboardPage() {
     if (!opened) {
       alert("Failed to initialize Paystack payment gateway. Please check your network connection.");
       setRenewingId(null);
+    }
+  };
+
+  const handleDeleteLandlordProperty = async (propertyId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this room listing from the system?")) return;
+
+    setProperties((prev) => prev.filter((p) => p.id !== propertyId));
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/properties/${propertyId}`, {
+        method: "DELETE",
+        headers,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to delete property.");
+        loadLandlordProperties();
+      } else {
+        setActionNotice("Property listing permanently deleted from the system.");
+      }
+    } catch {
+      // Keep optimistic delete
     }
   };
 
@@ -293,6 +325,9 @@ export default function LandlordDashboardPage() {
           </div>
         </div>
 
+        {/* 30-Day Performance Analytics Chart */}
+        <Landlord30DayChart properties={properties} />
+
         {/* Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="relative w-full sm:w-96">
@@ -438,25 +473,33 @@ export default function LandlordDashboardPage() {
                       </p>
                     </div>
 
-                    {/* Action Button */}
-                    <div className="pt-2">
+                    {/* Action Buttons */}
+                    <div className="pt-2 flex items-center gap-2">
                       <button
                         onClick={() => handleRenewListing(prop)}
                         disabled={renewingId === prop.id}
-                        className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg ${
+                        className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg ${
                           isExpired
                             ? "bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/20"
                             : "bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700"
                         }`}
                       >
-                        <CreditCard className="w-4 h-4" />
-                        <span>
+                        <CreditCard className="w-4 h-4 shrink-0" />
+                        <span className="truncate">
                           {renewingId === prop.id
-                            ? "Processing Renewal..."
+                            ? "Processing..."
                             : isExpired
-                            ? "Renew Listing Now (GH₵ 30.00 via Paystack)"
-                            : "Extend Listing Validity (GH₵ 30.00)"}
+                            ? "Renew Listing (GH₵ 30.00)"
+                            : "Extend Validity (GH₵ 30.00)"}
                         </span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteLandlordProperty(prop.id)}
+                        className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition shrink-0"
+                        title="Delete Property Listing"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -467,11 +510,29 @@ export default function LandlordDashboardPage() {
         )}
       </main>
 
+      {/* Floating Contact Support Button */}
+      <button
+        onClick={() => setIsSupportOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-extrabold text-xs shadow-2xl shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 border border-emerald-300/50"
+        aria-label="Contact Customer Support"
+      >
+        <Headphones className="w-4 h-4 text-slate-950 animate-bounce" />
+        <span className="hidden sm:inline">Landlord Support</span>
+        <span className="sm:hidden">Support</span>
+      </button>
+
       <LandlordPostModal
         isOpen={isPostRoomOpen}
         onClose={() => setIsPostRoomOpen(false)}
         onSuccess={() => loadLandlordProperties()}
         currentUser={currentUser}
+      />
+
+      <ContactSupportModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        user={currentUser}
+        defaultSubject="Landlord Support Request regarding Room Listing or Payment"
       />
     </div>
   );

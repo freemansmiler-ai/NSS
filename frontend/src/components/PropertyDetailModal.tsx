@@ -8,6 +8,7 @@ import { openPaystackPopup } from "@/lib/paystack";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import DynamicMap from "./DynamicMap";
+import { isFavoriteId, toggleFavoriteId } from "@/lib/favorites";
 import {
   MapPin,
   Phone,
@@ -21,7 +22,8 @@ import {
   CheckCircle2,
   Lock,
   Map,
-  Eye
+  Eye,
+  Heart
 } from "lucide-react";
 
 interface PropertyDetailModalProps {
@@ -44,6 +46,24 @@ export default function PropertyDetailModal({
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [copiedGps, setCopiedGps] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    if (property?.id) {
+      setIsFav(isFavoriteId(property.id));
+    }
+    const handleFavUpdate = () => {
+      if (property?.id) setIsFav(isFavoriteId(property.id));
+    };
+    window.addEventListener("nss_favorites_updated", handleFavUpdate);
+    return () => window.removeEventListener("nss_favorites_updated", handleFavUpdate);
+  }, [property?.id]);
+
+  const handleToggleFav = () => {
+    if (property?.id) {
+      toggleFavoriteId(property.id);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && property?.id) {
@@ -182,11 +202,21 @@ export default function PropertyDetailModal({
             </p>
           </div>
 
-          <div className="text-right">
-            <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
-              GH₵ {property.pricePerMonth}
-            </span>
-            <p className="text-xs text-slate-400">per month</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleToggleFav}
+              className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 hover:border-rose-500/50 hover:bg-slate-800 transition shadow-md flex items-center gap-2 text-xs font-bold"
+              title={isFav ? "Remove from Saved Rooms" : "Save Room to Favorites"}
+            >
+              <Heart className={`w-5 h-5 transition ${isFav ? "text-rose-500 fill-rose-500" : "text-slate-400 hover:text-rose-400"}`} />
+              <span className="hidden sm:inline">{isFav ? "Saved" : "Save Room"}</span>
+            </button>
+            <div className="text-right">
+              <span className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
+                GH₵ {property.pricePerMonth}
+              </span>
+              <p className="text-xs text-slate-400">per month</p>
+            </div>
           </div>
         </div>
 

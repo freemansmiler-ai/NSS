@@ -15,25 +15,30 @@ import {
   Sparkles,
   ShieldAlert,
   UserCheck,
-  Home
+  Home,
+  Heart
 } from "lucide-react";
 import Link from "next/link";
 
 interface NavbarProps {
   user: UserSession | null;
+  favoriteCount?: number;
   onOpenAuth: () => void;
   onOpenPostProperty: () => void;
   onOpenCommuteCalc: () => void;
   onOpenVerification: () => void;
+  onOpenFavorites?: () => void;
   onLogout: () => void;
 }
 
 export default function Navbar({
   user,
+  favoriteCount = 0,
   onOpenAuth,
   onOpenPostProperty,
   onOpenCommuteCalc,
   onOpenVerification,
+  onOpenFavorites,
   onLogout,
 }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -57,7 +62,7 @@ export default function Navbar({
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-emerald-400">
                   NSS DirectStay
                 </span>
-                <Badge variant="default" className="hidden sm:inline-flex text-[10px] uppercase font-bold py-0.5">
+                <Badge variant="default" className="hidden lg:inline-flex text-[10px] uppercase font-bold py-0.5">
                   Ghana 🇬🇭
                 </Badge>
               </div>
@@ -108,6 +113,22 @@ export default function Navbar({
             >
               <Navigation className="w-4 h-4 text-emerald-400" />
               <span>NSP Commute Distance</span>
+            </button>
+          )}
+
+          {onOpenFavorites && (
+            <button
+              onClick={onOpenFavorites}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition shadow-sm relative"
+              title="View Saved Favorite Rooms"
+            >
+              <Heart className="w-4 h-4 text-rose-400 fill-rose-500/30" />
+              <span>Saved Rooms</span>
+              {favoriteCount > 0 && (
+                <span className="bg-rose-500 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.2 rounded-full">
+                  {favoriteCount}
+                </span>
+              )}
             </button>
           )}
 
@@ -280,6 +301,26 @@ export default function Navbar({
                 <Navigation className="w-5 h-5 text-emerald-400" />
                 <span>NSP Commute Distance Calculator</span>
               </div>
+            </button>
+          )}
+
+          {onOpenFavorites && (
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenFavorites();
+              }}
+              className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 font-bold text-sm hover:bg-rose-500/25"
+            >
+              <div className="flex items-center gap-3">
+                <Heart className="w-5 h-5 text-rose-400 fill-rose-500/30" />
+                <span>Saved Rooms (Favorites)</span>
+              </div>
+              {favoriteCount > 0 && (
+                <span className="bg-rose-500 text-slate-950 text-xs font-extrabold px-2 py-0.5 rounded-full">
+                  {favoriteCount}
+                </span>
+              )}
             </button>
           )}
 

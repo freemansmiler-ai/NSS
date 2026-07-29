@@ -11,7 +11,9 @@ import CommuteCalculatorModal from "@/components/CommuteCalculatorModal";
 import LandlordPostModal from "@/components/LandlordPostModal";
 import AuthModal from "@/components/AuthModal";
 import VerificationModal from "@/components/VerificationModal";
+import ContactSupportModal from "@/components/ContactSupportModal";
 import DynamicMap from "@/components/DynamicMap";
+import { getFavoriteIds } from "@/lib/favorites";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -25,13 +27,15 @@ import {
   Building2,
   Lock,
   ArrowRight,
-  PlusCircle
+  PlusCircle,
+  Headphones,
+  Heart
 } from "lucide-react";
 
 export default function HomePage() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [properties, setProperties] = useState<PropertyData[]>(INITIAL_PROPERTIES);
+  const [properties, setProperties] = useState<PropertyData[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modals state
@@ -39,16 +43,26 @@ export default function HomePage() {
   const [isPostOpen, setIsPostOpen] = useState(false);
   const [isCommuteOpen, setIsCommuteOpen] = useState(false);
   const [isVerificationOpen, setIsVerificationOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<PropertyData | null>(null);
   const [roleNotice, setRoleNotice] = useState<string | null>(null);
 
-  // Filters state
+  // Filters & Saved Rooms state
   const [searchQuery, setSearchQuery] = useState("");
   const [propertyTypeFilter, setPropertyTypeFilter] = useState("ALL");
   const [facilityTypeFilter, setFacilityTypeFilter] = useState("ALL");
   const [leasePeriodFilter, setLeasePeriodFilter] = useState("ALL");
   const [maxPrice, setMaxPrice] = useState<number>(1000);
   const [viewMode, setViewMode] = useState<"GRID" | "MAP" | "SPLIT">("GRID");
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+
+  useEffect(() => {
+    setFavoriteIds(getFavoriteIds());
+    const handleFavsChange = () => setFavoriteIds(getFavoriteIds());
+    window.addEventListener("nss_favorites_updated", handleFavsChange);
+    return () => window.removeEventListener("nss_favorites_updated", handleFavsChange);
+  }, []);
 
   // Selected NSP Workplace Hotspot for Commute Math
   const [selectedWorkplace, setSelectedWorkplace] = useState<WorkplaceHotspot | null>(
@@ -178,6 +192,10 @@ export default function HomePage() {
         if (!isOwner) return false;
       }
 
+      if (showSavedOnly && !favoriteIds.includes(p.id)) {
+        return false;
+      }
+
       return matchesSearch && matchesType && matchesFacility && matchesLease && matchesPrice;
     });
 
@@ -196,7 +214,7 @@ export default function HomePage() {
     }
 
     return list;
-  }, [properties, searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice, selectedWorkplace]);
+  }, [properties, searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice, selectedWorkplace, showSavedOnly, favoriteIds]);
 
   if (!authChecked) {
     return (
@@ -295,10 +313,12 @@ export default function HomePage() {
       {/* Top Navbar */}
       <Navbar
         user={user}
+        favoriteCount={favoriteIds.length}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenPostProperty={handleOpenPostProperty}
         onOpenCommuteCalc={() => setIsCommuteOpen(true)}
         onOpenVerification={() => setIsVerificationOpen(true)}
+        onOpenFavorites={() => setShowSavedOnly((prev) => !prev)}
         onLogout={handleLogout}
       />
 
@@ -446,18 +466,48 @@ export default function HomePage() {
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
-            <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <span>Available Room Listings</span>
-              <Badge variant="default" className="text-xs font-extrabold">
-                {filteredProperties.length} Verified Rooms
-              </Badge>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Click any room to view full GhanaPostGPS code and contact landlord directly on WhatsApp.
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <span>{showSavedOnly ? "Your Saved Favorite Rooms" : "Available Room Listings"}</span>
+                <Badge variant="default" className="text-xs font-extrabold">
+                  {filteredProperties.length} Rooms
+                </Badge>
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400">
+              {showSavedOnly
+                ? "Your bookmarked room listings saved for quick reference without needing to unlock contacts."
+                : "Click any room to view full GhanaPostGPS code and contact landlord directly on WhatsApp."}
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+            {/* Filter Mode: All vs Saved */}
+            <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => setShowSavedOnly(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  !showSavedOnly
+                    ? "bg-emerald-500 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                All Rooms
+              </button>
+              <button
+                onClick={() => setShowSavedOnly(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  showSavedOnly
+                    ? "bg-rose-500 text-slate-950 shadow-md"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${showSavedOnly ? "fill-slate-950" : "text-rose-400"}`} />
+                <span>Saved ({favoriteIds.length})</span>
+              </button>
+            </div>
+
+            {/* View Mode: Grid vs Split vs Map */}
             <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
               <button
                 onClick={() => setViewMode("GRID")}
@@ -511,23 +561,41 @@ export default function HomePage() {
           </div>
         ) : filteredProperties.length === 0 ? (
           <div className="p-12 text-center bg-slate-900/60 border border-slate-800 rounded-3xl space-y-4">
-            <Building2 className="w-12 h-12 text-slate-600 mx-auto" />
-            <h3 className="text-lg font-bold text-slate-200">No matching rooms found</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Try adjusting your max price budget slider or clearing specific filters.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setPropertyTypeFilter("ALL");
-                setFacilityTypeFilter("ALL");
-                setLeasePeriodFilter("ALL");
-                setMaxPrice(1000);
-              }}
-              className="px-4 py-2 rounded-xl bg-slate-800 text-emerald-400 text-xs font-bold hover:bg-slate-700"
-            >
-              Reset All Filters
-            </button>
+            {showSavedOnly ? (
+              <>
+                <Heart className="w-12 h-12 text-rose-500/50 mx-auto" />
+                <h3 className="text-lg font-bold text-slate-200">No Saved Rooms Yet</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Click the heart icon on any property card or room detail modal to save rooms to your personal favorites list!
+                </p>
+                <button
+                  onClick={() => setShowSavedOnly(false)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 text-xs font-bold hover:from-emerald-400 transition"
+                >
+                  Browse All Rooms
+                </button>
+              </>
+            ) : (
+              <>
+                <Building2 className="w-12 h-12 text-slate-600 mx-auto" />
+                <h3 className="text-lg font-bold text-slate-200">No matching rooms found</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  Try adjusting your max price budget slider or clearing specific filters.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setPropertyTypeFilter("ALL");
+                    setFacilityTypeFilter("ALL");
+                    setLeasePeriodFilter("ALL");
+                    setMaxPrice(1000);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-emerald-400 text-xs font-bold hover:bg-slate-700"
+                >
+                  Reset All Filters
+                </button>
+              </>
+            )}
           </div>
         ) : viewMode === "GRID" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -592,12 +660,33 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="text-xs text-slate-400 space-y-1">
-            <p>© 2026 NSS DirectStay Ghana. 100% Free & Open Access.</p>
-            <p className="text-emerald-400 font-medium">Zero agent commission. Built for NSP personnel across Ghana.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={() => setIsSupportOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-emerald-400 hover:bg-slate-800 text-xs font-semibold transition shadow-sm"
+            >
+              <Headphones className="w-4 h-4 text-emerald-400" />
+              <span>Contact Support (0557208794)</span>
+            </button>
+
+            <div className="text-xs text-slate-400 space-y-1">
+              <p>© 2026 NSS DirectStay Ghana. 100% Free & Open Access.</p>
+              <p className="text-emerald-400 font-medium">Developed by Kpogli Freeman</p>
+            </div>
           </div>
         </div>
       </footer>
+
+      {/* Floating Contact Support Button */}
+      <button
+        onClick={() => setIsSupportOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-extrabold text-xs shadow-2xl shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all duration-300 border border-emerald-300/50"
+        aria-label="Contact Customer Support"
+      >
+        <Headphones className="w-4 h-4 text-slate-950 animate-bounce" />
+        <span className="hidden sm:inline">Contact Support</span>
+        <span className="sm:hidden">Support</span>
+      </button>
 
       <PropertyDetailModal
         property={selectedProperty}
@@ -639,6 +728,12 @@ export default function HomePage() {
         onClose={() => setIsVerificationOpen(false)}
         user={user}
         onVerifiedSuccess={(u) => u && handleUpdateUser(u)}
+      />
+
+      <ContactSupportModal
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        user={user}
       />
 
     </div>

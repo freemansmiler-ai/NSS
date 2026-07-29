@@ -287,6 +287,10 @@ export async function findUserByEmail(email: string): Promise<any | null> {
 }
 
 export function processPropertyLifecycle(prop: PropertyData): { item: PropertyData; shouldDelete: boolean } {
+  if (deletedPropertyIds.has(prop.id)) {
+    return { item: prop, shouldDelete: true };
+  }
+
   const now = new Date();
   const createdDate = new Date(prop.lastRenewedAt || prop.createdAt);
   const diffTime = now.getTime() - createdDate.getTime();
@@ -458,6 +462,8 @@ export async function getProperties(params?: {
 }
 
 export async function getPropertyById(id: string): Promise<PropertyData | null> {
+  if (deletedPropertyIds.has(id)) return null;
+
   try {
     const prop = await prisma.property.findUnique({
       where: { id },
@@ -541,6 +547,21 @@ export async function createProperty(data: Omit<PropertyData, "id" | "createdAt"
 
   if (neonSql) {
     try {
+      // Ensure landlord exists in Neon SQL users table to prevent foreign key violation
+      const landlordEmail = data.landlordId.includes("@") ? data.landlordId.toLowerCase() : `${data.landlordId.toLowerCase()}@nssdirectstay.gh`;
+      await neonSql`
+        INSERT INTO users (id, email, password, "fullName", "phoneNumber", role, "isPhoneVerified", "isVerified", "isUnlocked", "createdAt", "updatedAt")
+        VALUES (
+          ${data.landlordId},
+          ${landlordEmail},
+          'password123',
+          'NSS Landlord',
+          ${data.contactPhone || "0557208794"},
+          'LANDLORD'::"UserRole",
+          true, true, true, NOW(), NOW()
+        ) ON CONFLICT (id) DO NOTHING;
+      `;
+
       const rows = await neonSql`
         INSERT INTO properties (
           id, "landlordId", title, "propertyType", "facilityType", "pricePerMonth",
@@ -598,6 +619,25 @@ export async function createProperty(data: Omit<PropertyData, "id" | "createdAt"
   }
 
   try {
+    const landlordEmail = data.landlordId.includes("@") ? data.landlordId.toLowerCase() : `${data.landlordId.toLowerCase()}@nssdirectstay.gh`;
+    try {
+      await prisma.user.upsert({
+        where: { id: data.landlordId },
+        update: {},
+        create: {
+          id: data.landlordId,
+          email: landlordEmail,
+          password: "password123",
+          fullName: "NSS Landlord",
+          phoneNumber: data.contactPhone || "0557208794",
+          role: "LANDLORD" as any,
+          isPhoneVerified: true,
+          isVerified: true,
+          isUnlocked: true,
+        }
+      });
+    } catch {}
+
     const created = await prisma.property.create({
       data: {
         landlordId: data.landlordId,
@@ -749,20 +789,26 @@ export async function updatePropertyStatus(id: string, isActive: boolean): Promi
 }
 
 export async function deleteProperty(id: string): Promise<boolean> {
+  deletedPropertyIds.add(id);
+  saveDeletedIds(deletedPropertyIds);
+
   if (neonSql) {
     try {
       await neonSql`DELETE FROM properties WHERE id = ${id};`;
     } catch (neonErr: any) {
-      console.error("Neon HTTP deleteProperty error:", neonErr?.message || neonErr);
+      try {
+        await neonSql`UPDATE properties SET "isActive" = false WHERE id = ${id};`;
+      } catch {}
     }
   }
 
   try {
     await prisma.property.delete({ where: { id } });
-  } catch {}
-
-  deletedPropertyIds.add(id);
-  saveDeletedIds(deletedPropertyIds);
+  } catch {
+    try {
+      await prisma.property.update({ where: { id }, data: { isActive: false } as any });
+    } catch {}
+  }
 
   localPropertiesStore = localPropertiesStore.filter((p) => p.id !== id);
   saveLocalStore(localPropertiesStore);

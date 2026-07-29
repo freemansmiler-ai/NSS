@@ -1,5 +1,23 @@
 [
   {
+    "id": "usr-1785343308589",
+    "email": "landlord@gmail.com",
+    "password": "$2b$10$UMKCsPGFYwaKFDJmKxNJYe1XAD3TwU66CGhWOB4fuunNdoslqlZGO",
+    "fullName": "Landlord",
+    "phoneNumber": "02546352",
+    "role": "LANDLORD",
+    "isVerified": false
+  },
+  {
+    "id": "usr-1785342040907",
+    "email": "amen@gmail.com",
+    "password": "$2b$10$BdWH5N306VayCvNwReoXPuX1K4QXcDsoTU9NrgAbr3F79Fe7ScCLi",
+    "fullName": "Amnen",
+    "phoneNumber": "02222563652",
+    "role": "LANDLORD",
+    "isVerified": false
+  },
+  {
     "id": "usr-1785260089122",
     "email": "test@gmail.com",
     "password": "$2b$10$Cv7ir0MaxpeDvAqZLU2zYev/F0ATAhHizyD0xwo6s7aVCm4H8fYae",
