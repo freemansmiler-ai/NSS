@@ -28,6 +28,7 @@ const AVAILABLE_AMENITIES = [
 ];
 
 import { openPaystackPopup } from "@/lib/paystack";
+import { GHANA_REGIONS } from "@/lib/ghana-regions-cities";
 
 export default function LandlordPostModal({
   isOpen,
@@ -38,6 +39,7 @@ export default function LandlordPostModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState("GAR");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -45,7 +47,7 @@ export default function LandlordPostModal({
     facilityType: "SELF_CONTAIN",
     pricePerMonth: "",
     minLeasePeriod: "TEN_MONTHS",
-    generalArea: "",
+    generalArea: "East Legon",
     exactGhanaPostGps: "",
     exactStreetAddress: "",
     latitude: "5.65",
@@ -363,24 +365,51 @@ export default function LandlordPostModal({
           </div>
 
           {/* Location & GhanaPostGPS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                General Area / Suburb *
+                Region in Ghana *
               </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Madina, East Legon, Spintex"
-                value={formData.generalArea}
-                onChange={(e) => setFormData({ ...formData, generalArea: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"
-              />
+              <select
+                value={selectedRegion}
+                onChange={(e) => {
+                  const regCode = e.target.value;
+                  setSelectedRegion(regCode);
+                  const reg = GHANA_REGIONS.find((r) => r.code === regCode);
+                  if (reg && reg.cities.length > 0) {
+                    setFormData((prev) => ({ ...prev, generalArea: reg.cities[0] }));
+                  }
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
+              >
+                {GHANA_REGIONS.map((region) => (
+                  <option key={region.code} value={region.code}>
+                    {region.name} ({region.code})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                GhanaPostGPS Digital Address *
+                City / Suburb / Town *
+              </label>
+              <select
+                value={formData.generalArea}
+                onChange={(e) => setFormData({ ...formData, generalArea: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-semibold"
+              >
+                {(GHANA_REGIONS.find((r) => r.code === selectedRegion)?.cities || []).map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                GhanaPostGPS Address *
               </label>
               <input
                 type="text"

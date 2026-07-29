@@ -14,6 +14,7 @@ import VerificationModal from "@/components/VerificationModal";
 import ContactSupportModal from "@/components/ContactSupportModal";
 import DynamicMap from "@/components/DynamicMap";
 import { getFavoriteIds } from "@/lib/favorites";
+import { GHANA_REGIONS } from "@/lib/ghana-regions-cities";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -49,6 +50,7 @@ export default function HomePage() {
 
   // Filters & Saved Rooms state
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRegionFilter, setSelectedRegionFilter] = useState("ALL");
   const [propertyTypeFilter, setPropertyTypeFilter] = useState("ALL");
   const [facilityTypeFilter, setFacilityTypeFilter] = useState("ALL");
   const [leasePeriodFilter, setLeasePeriodFilter] = useState("ALL");
@@ -390,7 +392,36 @@ export default function HomePage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Region in Ghana
+                </label>
+                <select
+                  value={selectedRegionFilter}
+                  onChange={(e) => {
+                    const reg = e.target.value;
+                    setSelectedRegionFilter(reg);
+                    if (reg === "ALL") {
+                      setSearchQuery("");
+                    } else {
+                      const regionObj = GHANA_REGIONS.find((r) => r.code === reg);
+                      if (regionObj && regionObj.cities.length > 0) {
+                        setSearchQuery(regionObj.cities[0]);
+                      }
+                    }
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-semibold"
+                >
+                  <option value="ALL">All 16 Regions</option>
+                  {GHANA_REGIONS.map((region) => (
+                    <option key={region.code} value={region.code}>
+                      {region.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Property Type
@@ -398,7 +429,7 @@ export default function HomePage() {
                 <select
                   value={propertyTypeFilter}
                   onChange={(e) => setPropertyTypeFilter(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-semibold"
                 >
                   <option value="ALL">All Types</option>
                   <option value="SINGLE_ROOM">Single Room</option>
@@ -413,7 +444,7 @@ export default function HomePage() {
                 <select
                   value={facilityTypeFilter}
                   onChange={(e) => setFacilityTypeFilter(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-semibold"
                 >
                   <option value="ALL">All Facilities</option>
                   <option value="SELF_CONTAIN">Self Contain</option>
@@ -428,7 +459,7 @@ export default function HomePage() {
                 <select
                   value={leasePeriodFilter}
                   onChange={(e) => setLeasePeriodFilter(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-semibold"
                 >
                   <option value="ALL">Any Period</option>
                   <option value="TEN_MONTHS">10 Months (NSP)</option>

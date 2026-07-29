@@ -22,14 +22,17 @@ const DELETED_FILE = path.join(process.cwd(), "deleted-properties.json");
 const UNLOCKS_FILE = path.join(process.cwd(), "user-unlocks.json");
 
 function loadDeletedIds(): Set<string> {
+  const set = new Set<string>();
   try {
     if (fs.existsSync(DELETED_FILE)) {
       const data = fs.readFileSync(DELETED_FILE, "utf-8");
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return new Set(parsed);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id) => set.add(id));
+      }
     }
   } catch {}
-  return new Set();
+  return set;
 }
 
 function saveDeletedIds(deletedSet: Set<string>) {
@@ -39,6 +42,149 @@ function saveDeletedIds(deletedSet: Set<string>) {
 }
 
 let deletedPropertyIds: Set<string> = loadDeletedIds();
+
+export async function syncDeletedIdsFromCloud() {
+  if (neonSql) {
+    try {
+      await neonSql`
+        CREATE TABLE IF NOT EXISTS deleted_properties (
+          id TEXT PRIMARY KEY,
+          "deletedAt" TIMESTAMP DEFAULT NOW()
+        );
+      `;
+      const rows = await neonSql`SELECT id FROM deleted_properties;`;
+      if (rows && rows.length > 0) {
+        for (const r of rows) {
+          deletedPropertyIds.add(r.id);
+        }
+        saveDeletedIds(deletedPropertyIds);
+      }
+    } catch {}
+  }
+}
+
+let hasAutoSeeded = false;
+
+export async function autoSeedNeonDatabase() {
+  if (!neonSql || hasAutoSeeded) return;
+  hasAutoSeeded = true;
+
+  try {
+    // 1. Ensure Types & Enums
+    await neonSql`
+      DO $$ BEGIN
+        CREATE TYPE "UserRole" AS ENUM ('TENANT', 'LANDLORD', 'ADMIN');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `;
+    await neonSql`
+      DO $$ BEGIN
+        CREATE TYPE "PropertyType" AS ENUM ('SINGLE_ROOM', 'CHAMBER_AND_HALL');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `;
+    await neonSql`
+      DO $$ BEGIN
+        CREATE TYPE "FacilityType" AS ENUM ('SELF_CONTAIN', 'SHARED_FACILITIES');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `;
+    await neonSql`
+      DO $$ BEGIN
+        CREATE TYPE "LeasePeriod" AS ENUM ('TEN_MONTHS', 'ONE_YEAR', 'TWO_YEARS_PLUS');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `;
+
+    // 2. Ensure Users Table
+    await neonSql`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        "fullName" TEXT NOT NULL,
+        "phoneNumber" TEXT UNIQUE NOT NULL,
+        "isPhoneVerified" BOOLEAN DEFAULT false,
+        "isVerified" BOOLEAN DEFAULT false,
+        "isUnlocked" BOOLEAN DEFAULT false,
+        "unlockedPropertyIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+        role "UserRole" DEFAULT 'TENANT'::"UserRole",
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
+      );
+    `;
+
+    // 3. Ensure Properties Table
+    await neonSql`
+      CREATE TABLE IF NOT EXISTS properties (
+        id TEXT PRIMARY KEY,
+        "landlordId" TEXT REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        "propertyType" "PropertyType" NOT NULL,
+        "facilityType" "FacilityType" NOT NULL,
+        "pricePerMonth" NUMERIC(10,2) NOT NULL,
+        "minLeasePeriod" "LeasePeriod" DEFAULT 'TEN_MONTHS'::"LeasePeriod",
+        "generalArea" TEXT NOT NULL,
+        "exactGhanaPostGps" TEXT NOT NULL,
+        "exactStreetAddress" TEXT NOT NULL,
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        description TEXT NOT NULL,
+        amenities TEXT[] DEFAULT ARRAY[]::TEXT[],
+        images TEXT[] DEFAULT ARRAY[]::TEXT[],
+        "contactPhone" TEXT NOT NULL,
+        "contactWhatsapp" TEXT NOT NULL,
+        "isGpsVerified" BOOLEAN DEFAULT true,
+        "isLandlordVerified" BOOLEAN DEFAULT true,
+        "paymentRef" TEXT,
+        "lastRenewedAt" TIMESTAMP DEFAULT NOW(),
+        "viewsCount" INT DEFAULT 0,
+        "isActive" BOOLEAN DEFAULT true,
+        "createdAt" TIMESTAMP DEFAULT NOW(),
+        "updatedAt" TIMESTAMP DEFAULT NOW()
+      );
+    `;
+
+    // 4. Seed Landlords if users table count is 0
+    const userCountRows = await neonSql`SELECT COUNT(*)::int as count FROM users;`;
+    if (userCountRows && userCountRows[0].count === 0) {
+      for (const landlord of INITIAL_LANDLORDS) {
+        await neonSql`
+          INSERT INTO users (id, email, password, "fullName", "phoneNumber", role, "isPhoneVerified", "isVerified", "isUnlocked", "createdAt", "updatedAt")
+          VALUES (${landlord.id}, ${landlord.email}, 'password123', ${landlord.fullName}, ${landlord.phoneNumber}, ${landlord.role}::"Role", true, true, true, NOW(), NOW())
+          ON CONFLICT (id) DO NOTHING;
+        `;
+      }
+    }
+
+    // 5. Seed Properties if properties table count is 0
+    const propCountRows = await neonSql`SELECT COUNT(*)::int as count FROM properties;`;
+    if (propCountRows && propCountRows[0].count === 0) {
+      for (const p of INITIAL_PROPERTIES) {
+        if (deletedPropertyIds.has(p.id)) continue;
+        await neonSql`
+          INSERT INTO users (id, email, password, "fullName", "phoneNumber", role, "isPhoneVerified", "isVerified", "isUnlocked", "createdAt", "updatedAt")
+          VALUES (${p.landlordId}, ${p.landlord?.email || 'landlord_' + p.landlordId + '@nssdirectstay.gh'}, 'password123', ${p.landlord?.fullName || 'NSS Landlord'}, ${p.contactPhone}, 'LANDLORD'::"Role", true, true, true, NOW(), NOW())
+          ON CONFLICT (id) DO NOTHING;
+        `;
+        await neonSql`
+          INSERT INTO properties (
+            id, "landlordId", title, "propertyType", "facilityType", "pricePerMonth",
+            "minLeasePeriod", "generalArea", "exactGhanaPostGps", "exactStreetAddress",
+            latitude, longitude, description, amenities, images, "contactPhone",
+            "contactWhatsapp", "isGpsVerified", "isLandlordVerified", "paymentRef",
+            "lastRenewedAt", "viewsCount", "isActive", "createdAt", "updatedAt"
+          ) VALUES (
+            ${p.id}, ${p.landlordId}, ${p.title}, ${p.propertyType}::"PropertyType",
+            ${p.facilityType}::"FacilityType", ${p.pricePerMonth}, ${(p.minLeasePeriod || "TEN_MONTHS")}::"LeasePeriod",
+            ${p.generalArea}, ${p.exactGhanaPostGps}, ${p.exactStreetAddress},
+            ${p.latitude}, ${p.longitude}, ${p.description}, ${p.amenities},
+            ${p.images}, ${p.contactPhone}, ${p.contactWhatsapp}, true, true,
+            ${p.paymentRef || null}, NOW(), ${p.viewsCount || 0}, ${p.isActive ?? true}, NOW(), NOW()
+          ) ON CONFLICT (id) DO NOTHING;
+        `;
+      }
+    }
+  } catch (err: any) {
+    console.error("autoSeedNeonDatabase error:", err?.message || err);
+  }
+}
 
 function loadUserUnlocksStore(): Record<string, string[]> {
   try {
@@ -403,6 +549,8 @@ export async function getProperties(params?: {
   includeInactive?: boolean;
 }): Promise<PropertyData[]> {
   let allProps: PropertyData[] = [];
+  await syncDeletedIdsFromCloud();
+  await autoSeedNeonDatabase();
 
   try {
     const whereClause: any = params?.includeInactive ? {} : { isActive: true };
@@ -864,6 +1012,13 @@ export async function deleteProperty(id: string): Promise<boolean> {
 
   if (neonSql) {
     try {
+      await neonSql`
+        CREATE TABLE IF NOT EXISTS deleted_properties (
+          id TEXT PRIMARY KEY,
+          "deletedAt" TIMESTAMP DEFAULT NOW()
+        );
+      `;
+      await neonSql`INSERT INTO deleted_properties (id) VALUES (${id}) ON CONFLICT (id) DO NOTHING;`;
       await neonSql`DELETE FROM properties WHERE id = ${id};`;
     } catch {
       try {
