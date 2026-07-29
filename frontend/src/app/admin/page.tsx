@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   Calendar,
   Lock,
+  LogOut,
   X
 } from "lucide-react";
 import Link from "next/link";
@@ -394,11 +395,26 @@ export default function AdminDashboardPage() {
               <span>Main Platform</span>
             </Link>
 
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-3">
-              <div className="flex flex-col text-right">
+            <div className="flex items-center gap-3 border-l border-slate-800 pl-3">
+              <div className="hidden sm:flex flex-col text-right">
                 <span className="text-xs font-bold text-slate-200">{currentUser.fullName}</span>
                 <span className="text-[10px] font-bold text-emerald-400 uppercase">ADMINISTRATOR</span>
               </div>
+              <button
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  try {
+                    localStorage.removeItem("nss_user");
+                    localStorage.removeItem("nss_token");
+                  } catch {}
+                  window.location.href = "/";
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition text-xs font-bold"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
             </div>
           </div>
         </div>

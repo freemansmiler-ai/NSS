@@ -146,13 +146,24 @@ export default function Navbar({
         {/* Mobile Hamburger Button */}
         <div className="flex md:hidden items-center gap-2">
           {user && (
-            <button
-              onClick={onOpenCommuteCalc}
-              className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
-              title="NSP Commute Distance"
-            >
-              <Navigation className="w-5 h-5" />
-            </button>
+            <>
+              <button
+                onClick={onOpenCommuteCalc}
+                className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                title="NSP Commute Distance"
+              >
+                <Navigation className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onLogout}
+                className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition flex items-center gap-1.5"
+                title="Sign Out"
+                aria-label="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-[11px] font-bold">Logout</span>
+              </button>
+            </>
           )}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -172,6 +183,37 @@ export default function Navbar({
         side="right"
       >
         <div className="flex flex-col gap-4 pt-2">
+          {user ? (
+            <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-md">
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase">Logged In As</span>
+                <span className="font-extrabold text-sm text-slate-100">{user.fullName}</span>
+                <span className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">{user.role}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onLogout();
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 hover:bg-rose-500/25 transition text-xs font-bold"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenAuth();
+              }}
+              className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20"
+            >
+              <User className="w-4 h-4" />
+              <span>Sign In / Create Account</span>
+            </button>
+          )}
+
           <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm mb-1">
               <Sparkles className="w-4 h-4" />
@@ -251,13 +293,8 @@ export default function Navbar({
             </div>
           </button>
 
-          {user ? (
+          {user && (
             <div className="pt-4 border-t border-slate-800 space-y-3">
-              <div className="p-3 bg-slate-800/50 rounded-xl">
-                <p className="text-xs text-slate-400">Signed in as</p>
-                <p className="font-bold text-sm text-white">{user.fullName}</p>
-                <p className="text-xs text-emerald-400 uppercase font-semibold">{user.role}</p>
-              </div>
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
@@ -269,17 +306,6 @@ export default function Navbar({
                 <span>Sign Out</span>
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onOpenAuth();
-              }}
-              className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold text-sm mt-2"
-            >
-              <User className="w-4 h-4" />
-              <span>Sign In / Create Account</span>
-            </button>
           )}
         </div>
       </Sheet>
