@@ -157,10 +157,11 @@ export default function Navbar({
           )}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200"
-            aria-label="Toggle Navigation Menu"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-bold text-xs hover:bg-slate-800 active:scale-95 transition shadow-sm"
+            aria-label="Open Navigation Menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-emerald-400" />
+            <span className="text-xs font-bold text-slate-100">Menu</span>
           </button>
         </div>
       </div>
