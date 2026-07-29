@@ -1,7 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { neon } from "@neondatabase/serverless";
 import { INITIAL_PROPERTIES, INITIAL_LANDLORDS, PropertyData, UserData } from "./sample-data";
 import fs from "fs";
 import path from "path";
+
+const connectionString = process.env.DATABASE_URL;
+export const neonSql = connectionString ? neon(connectionString) : null;
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -131,6 +135,41 @@ export async function createUserRecord(data: {
     ? data.phoneNumber
     : `+233${Math.floor(100000000 + Math.random() * 900000000)}`;
 
+  if (neonSql) {
+    try {
+      const id = `usr-${Date.now()}`;
+      const pass = data.password || "password123";
+      const isUnl = data.isUnlocked ?? (data.role === "LANDLORD" || data.role === "ADMIN");
+      const isVer = data.isVerified ?? false;
+
+      const rows = await neonSql`
+        INSERT INTO users (id, email, password, "fullName", "phoneNumber", "isPhoneVerified", "isVerified", "isUnlocked", role, "createdAt", "updatedAt")
+        VALUES (${id}, ${cleanEmail}, ${pass}, ${data.fullName}, ${phone}, true, ${isVer}, ${isUnl}, ${data.role}::"Role", NOW(), NOW())
+        RETURNING *;
+      `;
+
+      if (rows && rows.length > 0) {
+        const createdUser = rows[0];
+        const localUser: UserData = {
+          id: createdUser.id,
+          email: createdUser.email,
+          password: pass,
+          fullName: createdUser.fullName,
+          phoneNumber: createdUser.phoneNumber,
+          role: createdUser.role as any,
+          isVerified: createdUser.isVerified ?? false,
+        };
+        if (!localUsersStore.some((u) => u.email === cleanEmail)) {
+          localUsersStore.unshift(localUser);
+          saveUsersStore(localUsersStore);
+        }
+        return createdUser;
+      }
+    } catch (neonErr: any) {
+      console.error("Neon HTTP createUserRecord error:", neonErr?.message || neonErr);
+    }
+  }
+
   try {
     const created = await prisma.user.create({
       data: {
@@ -197,6 +236,17 @@ export async function createUserRecord(data: {
 
 export async function findUserByEmail(email: string): Promise<any | null> {
   const cleanEmail = email.toLowerCase().trim();
+
+  if (neonSql) {
+    try {
+      const rows = await neonSql`
+        SELECT * FROM users WHERE LOWER(email) = ${cleanEmail} LIMIT 1;
+      `;
+      if (rows && rows.length > 0) {
+        return rows[0];
+      }
+    } catch {}
+  }
 
   try {
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
