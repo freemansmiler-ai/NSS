@@ -76,6 +76,76 @@ export function saveUserUnlockedProperty(userIdentifier: string, propertyId: str
   return cleanList;
 }
 
+export async function persistUserUnlock(userId: string, email?: string, propertyId?: string): Promise<string[]> {
+  if (!propertyId) return [];
+
+  const savedById = saveUserUnlockedProperty(userId, propertyId);
+  let savedByEmail: string[] = [];
+  if (email) {
+    savedByEmail = saveUserUnlockedProperty(email, propertyId);
+  }
+
+  const merged = Array.from(new Set([...savedById, ...savedByEmail])).filter((id) => !deletedPropertyIds.has(id));
+
+  if (neonSql && (userId || email)) {
+    try {
+      await neonSql`
+        UPDATE users
+        SET "unlockedPropertyIds" = ARRAY(SELECT DISTINCT unnest(COALESCE("unlockedPropertyIds", ARRAY[]::text[]) || ${[propertyId]}::text[])),
+            "isUnlocked" = true,
+            "updatedAt" = NOW()
+        WHERE id = ${userId} OR LOWER(email) = ${email?.toLowerCase() || ''};
+      `;
+    } catch (neonErr: any) {
+      console.error("Neon HTTP persistUserUnlock error:", neonErr?.message || neonErr);
+    }
+  }
+
+  if (userId) {
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isUnlocked: true,
+          unlockedPropertyIds: merged,
+        } as any,
+      });
+    } catch {}
+  }
+
+  return merged;
+}
+
+export async function fetchUserUnlockedProperties(userId: string, email?: string): Promise<string[]> {
+  const localById = getUserUnlockedProperties(userId);
+  const localByEmail = email ? getUserUnlockedProperties(email) : [];
+  let dbUnlocked: string[] = [];
+
+  if (neonSql && (userId || email)) {
+    try {
+      const rows = await neonSql`
+        SELECT "unlockedPropertyIds" FROM users
+        WHERE id = ${userId} OR LOWER(email) = ${email?.toLowerCase() || ''} LIMIT 1;
+      `;
+      if (rows && rows.length > 0 && Array.isArray(rows[0].unlockedPropertyIds)) {
+        dbUnlocked = rows[0].unlockedPropertyIds;
+      }
+    } catch {}
+  }
+
+  if (dbUnlocked.length === 0 && userId) {
+    try {
+      const u = await prisma.user.findUnique({ where: { id: userId } });
+      if (u && Array.isArray((u as any).unlockedPropertyIds)) {
+        dbUnlocked = (u as any).unlockedPropertyIds;
+      }
+    } catch {}
+  }
+
+  const all = Array.from(new Set([...localById, ...localByEmail, ...dbUnlocked])).filter((id) => !deletedPropertyIds.has(id));
+  return all;
+}
+
 function loadLocalStore(): PropertyData[] {
   try {
     if (fs.existsSync(PERSIST_FILE)) {
@@ -795,7 +865,10 @@ export async function deleteProperty(id: string): Promise<boolean> {
   if (neonSql) {
     try {
       await neonSql`DELETE FROM properties WHERE id = ${id};`;
-    } catch (neonErr: any) {
+    } catch {
+      try {
+        await neonSql`DELETE FROM "Property" WHERE id = ${id};`;
+      } catch {}
       try {
         await neonSql`UPDATE properties SET "isActive" = false WHERE id = ${id};`;
       } catch {}

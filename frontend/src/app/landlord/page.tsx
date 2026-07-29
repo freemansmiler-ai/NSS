@@ -29,7 +29,8 @@ import {
   Phone,
   MessageSquare,
   Trash2,
-  Headphones
+  Headphones,
+  EyeOff
 } from "lucide-react";
 import Link from "next/link";
 
@@ -172,6 +173,39 @@ export default function LandlordDashboardPage() {
       }
     } catch {
       // Keep optimistic delete
+    }
+  };
+
+  const handleToggleDelistProperty = async (propertyId: string, currentActive: boolean) => {
+    const nextStatus = !currentActive;
+    const actionLabel = nextStatus ? "relist" : "delist";
+    if (!confirm(`Are you sure you want to ${actionLabel} this property listing? ${!nextStatus ? "(It will be hidden from tenants)" : "(It will be visible to tenants)"}`)) return;
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("nss_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/properties/${propertyId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isActive: nextStatus }),
+      });
+      if (res.ok) {
+        setProperties((prev) =>
+          prev.map((p) => (p.id === propertyId ? { ...p, isActive: nextStatus } : p))
+        );
+        setActionNotice(
+          nextStatus
+            ? "Property listing relisted! Now visible to all tenants."
+            : "Property listing delisted! Hidden from tenants feed."
+        );
+      } else {
+        const data = await res.json();
+        alert(data.error || `Failed to ${actionLabel} property.`);
+      }
+    } catch (err: any) {
+      alert(err.message || "Network error occurred.");
     }
   };
 
@@ -495,9 +529,21 @@ export default function LandlordDashboardPage() {
                       </button>
 
                       <button
+                        onClick={() => handleToggleDelistProperty(prop.id, prop.isActive)}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition shrink-0 flex items-center gap-1 ${
+                          prop.isActive
+                            ? "bg-slate-900 border-slate-800 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30"
+                            : "bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25"
+                        }`}
+                        title={prop.isActive ? "Delist property (Hide from tenants)" : "Relist property (Show to tenants)"}
+                      >
+                        {prop.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-amber-400" />}
+                      </button>
+
+                      <button
                         onClick={() => handleDeleteLandlordProperty(prop.id)}
                         className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/30 transition shrink-0"
-                        title="Delete Property Listing"
+                        title="Delete Property Listing permanently"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

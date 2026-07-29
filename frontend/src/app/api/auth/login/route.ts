@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
-import { prisma, getUserUnlockedProperties, findUserByEmail } from "@/lib/db";
+import { prisma, fetchUserUnlockedProperties, getUserUnlockedProperties, findUserByEmail } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
 export async function POST(request: Request) {
@@ -23,9 +23,8 @@ export async function POST(request: Request) {
         if (isValid) {
           const userRole = user.role as any;
           const dbUnlocked: string[] = Array.isArray((user as any).unlockedPropertyIds) ? (user as any).unlockedPropertyIds : [];
-          const persistentUnlocked = getUserUnlockedProperties(user.id);
-          const persistentEmailUnlocked = getUserUnlockedProperties(user.email);
-          const unlockedPropertyIds = Array.from(new Set([...dbUnlocked, ...persistentUnlocked, ...persistentEmailUnlocked]));
+          const fetchedUnlocked = await fetchUserUnlockedProperties(user.id, user.email);
+          const unlockedPropertyIds = Array.from(new Set([...dbUnlocked, ...fetchedUnlocked]));
 
           const sessionData = {
             userId: user.id,

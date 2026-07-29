@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSessionToken, getSessionFromRequest, COOKIE_NAME } from "@/lib/auth";
-import { prisma, saveUserUnlockedProperty } from "@/lib/db";
+import { prisma, persistUserUnlock } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
@@ -22,10 +22,7 @@ export async function POST(request: Request) {
       let persistentUnlockedIds: string[] = [];
 
       if (propertyId) {
-        persistentUnlockedIds = saveUserUnlockedProperty(userKey, propertyId);
-        if (session?.email) {
-          saveUserUnlockedProperty(session.email, propertyId);
-        }
+        persistentUnlockedIds = await persistUserUnlock(userKey, session?.email, propertyId);
       }
 
       const existingUnlockedIds: string[] = Array.isArray(session?.unlockedPropertyIds)

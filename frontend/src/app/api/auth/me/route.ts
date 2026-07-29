@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
-import { getUserUnlockedProperties } from "@/lib/db";
+import { fetchUserUnlockedProperties } from "@/lib/db";
 
 export async function GET(request: Request) {
   try {
@@ -9,11 +9,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ user: null });
     }
 
-    const savedById = getUserUnlockedProperties(session.userId);
-    const savedByEmail = getUserUnlockedProperties(session.email);
+    const fetchedUnlocked = await fetchUserUnlockedProperties(session.userId, session.email);
     const sessionUnlocked = Array.isArray(session.unlockedPropertyIds) ? session.unlockedPropertyIds : [];
 
-    const mergedUnlockedIds = Array.from(new Set([...sessionUnlocked, ...savedById, ...savedByEmail]));
+    const mergedUnlockedIds = Array.from(new Set([...sessionUnlocked, ...fetchedUnlocked]));
 
     const fullUser = {
       ...session,
