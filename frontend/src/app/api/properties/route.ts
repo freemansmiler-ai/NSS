@@ -13,15 +13,19 @@ export async function GET(request: Request) {
     const maxPriceParam = searchParams.get("maxPrice");
     const maxPrice = maxPriceParam ? Number(maxPriceParam) : undefined;
     const area = searchParams.get("area") || undefined;
+
+    const authHeader = request.headers.get("Authorization");
+    const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const cookieToken = cookieStore.get(COOKIE_NAME)?.value;
+    const token = cookieToken || headerToken;
     const session = token ? await verifySessionToken(token) : null;
 
     let landlordId = searchParams.get("landlordId") || undefined;
     let includeInactive = searchParams.get("includeInactive") === "true";
 
     if (session?.role === "LANDLORD") {
-      landlordId = session.userId;
+      landlordId = landlordId || session.userId || session.email;
       includeInactive = true;
     }
 
@@ -47,8 +51,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const authHeader = request.headers.get("Authorization");
+    const headerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE_NAME)?.value;
+    const cookieToken = cookieStore.get(COOKIE_NAME)?.value;
+    const token = cookieToken || headerToken;
     const session = token ? await verifySessionToken(token) : null;
 
     const body = await request.json();
@@ -69,6 +76,7 @@ export async function POST(request: Request) {
       contactPhone,
       contactWhatsapp,
       paymentRef,
+      landlordId: bodyLandlordId,
     } = body;
 
     const isLandlord = session?.role === "LANDLORD";
@@ -88,7 +96,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const landlordId = session?.userId || `landlord-${Date.now()}`;
+    const landlordId = session?.userId || session?.email || bodyLandlordId || `landlord-${Date.now()}`;
 
     const newProperty = await createProperty({
       landlordId,

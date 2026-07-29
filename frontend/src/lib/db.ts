@@ -234,14 +234,26 @@ export async function createUserRecord(data: {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 2000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("DB operation timed out")), timeoutMs)
+    ),
+  ]);
+}
+
 export async function findUserByEmail(email: string): Promise<any | null> {
   const cleanEmail = email.toLowerCase().trim();
 
   if (neonSql) {
     try {
-      const rows = await neonSql`
-        SELECT * FROM users WHERE LOWER(email) = ${cleanEmail} LIMIT 1;
-      `;
+      const rows = await withTimeout(
+        neonSql`
+          SELECT * FROM users WHERE LOWER(email) = ${cleanEmail} LIMIT 1;
+        `,
+        2000
+      );
       if (rows && rows.length > 0) {
         return rows[0];
       }
@@ -249,7 +261,10 @@ export async function findUserByEmail(email: string): Promise<any | null> {
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    const user = await withTimeout(
+      prisma.user.findUnique({ where: { email: cleanEmail } }),
+      2000
+    );
     if (user) return user;
   } catch {}
 
@@ -344,11 +359,14 @@ export async function getProperties(params?: {
       ];
     }
 
-    const properties = await prisma.property.findMany({
-      where: whereClause,
-      include: { landlord: true },
-      orderBy: { createdAt: "desc" }
-    });
+    const properties = await withTimeout(
+      prisma.property.findMany({
+        where: whereClause,
+        include: { landlord: true },
+        orderBy: { createdAt: "desc" }
+      }),
+      2500
+    );
 
     for (const p of properties) {
       const rawProp: PropertyData = {
@@ -521,6 +539,64 @@ export async function createProperty(data: Omit<PropertyData, "id" | "createdAt"
     updatedAt: now
   };
 
+  if (neonSql) {
+    try {
+      const rows = await neonSql`
+        INSERT INTO properties (
+          id, "landlordId", title, "propertyType", "facilityType", "pricePerMonth",
+          "minLeasePeriod", "generalArea", "exactGhanaPostGps", "exactStreetAddress",
+          latitude, longitude, description, amenities, images, "contactPhone",
+          "contactWhatsapp", "isGpsVerified", "isLandlordVerified", "paymentRef",
+          "lastRenewedAt", "viewsCount", "isActive", "createdAt", "updatedAt"
+        ) VALUES (
+          ${newId}, ${data.landlordId}, ${data.title}, ${data.propertyType}::"PropertyType",
+          ${data.facilityType}::"FacilityType", ${data.pricePerMonth}, ${(data.minLeasePeriod || "TEN_MONTHS")}::"LeasePeriod",
+          ${data.generalArea}, ${data.exactGhanaPostGps}, ${data.exactStreetAddress},
+          ${data.latitude}, ${data.longitude}, ${data.description}, ${data.amenities},
+          ${data.images}, ${data.contactPhone}, ${data.contactWhatsapp}, true, true,
+          ${data.paymentRef || null}, NOW(), 0, ${data.isActive ?? true}, NOW(), NOW()
+        ) RETURNING *;
+      `;
+      if (rows && rows.length > 0) {
+        const created = rows[0];
+        const fullProp: PropertyData = {
+          id: created.id,
+          landlordId: created.landlordId,
+          title: created.title,
+          propertyType: created.propertyType,
+          facilityType: created.facilityType,
+          pricePerMonth: Number(created.pricePerMonth),
+          minLeasePeriod: created.minLeasePeriod,
+          generalArea: created.generalArea,
+          exactGhanaPostGps: created.exactGhanaPostGps,
+          exactStreetAddress: created.exactStreetAddress,
+          latitude: Number(created.latitude),
+          longitude: Number(created.longitude),
+          description: created.description,
+          amenities: created.amenities || [],
+          images: created.images || [],
+          contactPhone: created.contactPhone,
+          contactWhatsapp: created.contactWhatsapp,
+          paymentRef: created.paymentRef || undefined,
+          lastRenewedAt: created.lastRenewedAt ? new Date(created.lastRenewedAt).toISOString() : now,
+          viewsCount: created.viewsCount ?? 0,
+          isActive: created.isActive ?? true,
+          daysRemaining: 90,
+          daysUntilDeletion: 93,
+          isExpired: false,
+          isNewlyListed: true,
+          createdAt: created.createdAt ? new Date(created.createdAt).toISOString() : now,
+          updatedAt: created.updatedAt ? new Date(created.updatedAt).toISOString() : now,
+        };
+        localPropertiesStore.unshift(fullProp);
+        saveLocalStore(localPropertiesStore);
+        return fullProp;
+      }
+    } catch (neonErr: any) {
+      console.error("Neon HTTP createProperty error:", neonErr?.message || neonErr);
+    }
+  }
+
   try {
     const created = await prisma.property.create({
       data: {
@@ -629,6 +705,14 @@ export async function renewProperty(id: string, paymentRef: string): Promise<Pro
 }
 
 export async function updatePropertyStatus(id: string, isActive: boolean): Promise<PropertyData | null> {
+  if (neonSql) {
+    try {
+      await neonSql`UPDATE properties SET "isActive" = ${isActive}, "updatedAt" = NOW() WHERE id = ${id};`;
+    } catch (neonErr: any) {
+      console.error("Neon HTTP updatePropertyStatus error:", neonErr?.message || neonErr);
+    }
+  }
+
   try {
     const updated = await prisma.property.update({
       where: { id },
@@ -665,6 +749,14 @@ export async function updatePropertyStatus(id: string, isActive: boolean): Promi
 }
 
 export async function deleteProperty(id: string): Promise<boolean> {
+  if (neonSql) {
+    try {
+      await neonSql`DELETE FROM properties WHERE id = ${id};`;
+    } catch (neonErr: any) {
+      console.error("Neon HTTP deleteProperty error:", neonErr?.message || neonErr);
+    }
+  }
+
   try {
     await prisma.property.delete({ where: { id } });
   } catch {}

@@ -14,7 +14,8 @@ import {
   Navigation,
   Sparkles,
   ShieldAlert,
-  UserCheck
+  UserCheck,
+  Home
 } from "lucide-react";
 import Link from "next/link";
 
@@ -146,24 +147,13 @@ export default function Navbar({
         {/* Mobile Hamburger Button */}
         <div className="flex md:hidden items-center gap-2">
           {user && (
-            <>
-              <button
-                onClick={onOpenCommuteCalc}
-                className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
-                title="NSP Commute Distance"
-              >
-                <Navigation className="w-5 h-5" />
-              </button>
-              <button
-                onClick={onLogout}
-                className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 transition flex items-center gap-1.5"
-                title="Sign Out"
-                aria-label="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="text-[11px] font-bold">Logout</span>
-              </button>
-            </>
+            <button
+              onClick={onOpenCommuteCalc}
+              className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+              title="NSP Commute Distance"
+            >
+              <Navigation className="w-5 h-5" />
+            </button>
           )}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -213,6 +203,18 @@ export default function Navbar({
               <span>Sign In / Create Account</span>
             </button>
           )}
+
+          {/* Navigation Links inside Mobile Drawer */}
+          <Link
+            href="/"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 font-bold text-sm hover:bg-slate-800"
+          >
+            <div className="flex items-center gap-3">
+              <Home className="w-5 h-5 text-emerald-400" />
+              <span>Home / Room Search</span>
+            </div>
+          </Link>
 
           <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm mb-1">
@@ -300,10 +302,10 @@ export default function Navbar({
                   setIsMobileMenuOpen(false);
                   onLogout();
                 }}
-                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-semibold text-sm"
+                className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold text-sm hover:bg-rose-500/20 transition"
               >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
+                <LogOut className="w-5 h-5" />
+                <span>Log Out</span>
               </button>
             </div>
           )}
