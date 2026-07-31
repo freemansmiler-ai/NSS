@@ -13,7 +13,7 @@ import AuthModal from "@/components/AuthModal";
 import VerificationModal from "@/components/VerificationModal";
 import ContactSupportModal from "@/components/ContactSupportModal";
 import DynamicMap from "@/components/DynamicMap";
-import { getFavoriteIds } from "@/lib/favorites";
+import { getFavoriteIds, clearFavoriteIds } from "@/lib/favorites";
 import { GHANA_REGIONS } from "@/lib/ghana-regions-cities";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -146,6 +146,7 @@ export default function HomePage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    clearFavoriteIds();
     handleUpdateUser(null);
   };
 

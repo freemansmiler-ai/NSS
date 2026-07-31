@@ -8,6 +8,14 @@ export function getFavoriteIds(): string[] {
   }
 }
 
+export function clearFavoriteIds(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("nss_favorites");
+    window.dispatchEvent(new Event("nss_favorites_updated"));
+  } catch {}
+}
+
 export function toggleFavoriteId(propertyId: string): string[] {
   if (typeof window === "undefined" || !propertyId) return [];
   try {

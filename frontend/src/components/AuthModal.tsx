@@ -5,6 +5,8 @@ import { UserSession } from "@/lib/auth";
 import { Dialog } from "@/components/ui/dialog";
 import { User, Lock, Mail, Phone, ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 
+import { clearFavoriteIds } from "@/lib/favorites";
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -68,6 +70,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       }
 
       if (tab === "REGISTER" && data.user) {
+        clearFavoriteIds();
         setRegisteredUser(data.user);
         onSuccess(data.user);
       } else {
