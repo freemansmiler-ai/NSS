@@ -23,21 +23,21 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [registeredUser, setRegisteredUser] = useState<UserSession | null>(null);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState("");
   const [resendError, setResendError] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
 
   // Real-time cross-device verification status sync (e.g., registered on computer, verified on phone)
   useEffect(() => {
-    if (!registeredUser || registeredUser.isEmailVerified) return;
+    if (!registeredEmail) return;
 
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/api/auth/check-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: registeredUser.email }),
+          body: JSON.stringify({ email: registeredEmail }),
         });
         const data = await res.json();
         if (res.ok && data.verified && data.user) {
@@ -47,7 +47,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             } catch {}
           }
           onSuccess(data.user);
-          setRegisteredUser(null);
+          setRegisteredEmail(null);
           setResendStatus("");
           setResendError("");
           setError("");
@@ -57,7 +57,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [registeredUser, onSuccess, onClose]);
+  }, [registeredEmail, onSuccess, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,18 +94,18 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         throw new Error(data.error || "Authentication failed.");
       }
 
-      if (data.token) {
-        try {
-          localStorage.setItem("nss_token", data.token);
-        } catch {}
-      }
-
-      if (tab === "REGISTER" && data.user) {
+      if (tab === "REGISTER") {
         clearFavoriteIds();
-        setRegisteredUser(data.user);
-        onSuccess(data.user);
+        setRegisteredEmail(data.registeredEmail || email);
       } else {
-        onSuccess(data.user);
+        if (data.token) {
+          try {
+            localStorage.setItem("nss_token", data.token);
+          } catch {}
+        }
+        if (data.user) {
+          onSuccess(data.user);
+        }
         onClose();
       }
     } catch (err: any) {
@@ -116,7 +116,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   };
 
   const handleResend = async () => {
-    if (!registeredUser?.email || resendLoading) return;
+    if (!registeredEmail || resendLoading) return;
     setResendLoading(true);
     setResendStatus("");
     setResendError("");
@@ -125,7 +125,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       const res = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: registeredUser.email }),
+        body: JSON.stringify({ email: registeredEmail }),
       });
 
       const data = await res.json();
@@ -142,7 +142,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   };
 
   const handleModalClose = () => {
-    setRegisteredUser(null);
+    setRegisteredEmail(null);
     setResendStatus("");
     setResendError("");
     setError("");
@@ -153,7 +153,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     <Dialog isOpen={isOpen} onClose={handleModalClose} maxWidth="max-w-md">
       <div className="space-y-4">
         {/* Post-Registration Success Notice */}
-        {registeredUser ? (
+        {registeredEmail ? (
           <div className="py-4 space-y-4 text-center">
             <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/30">
               <CheckCircle2 className="w-8 h-8" />
@@ -162,7 +162,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
             <div>
               <h2 className="text-xl font-bold text-white">Account Created!</h2>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                We&apos;ve sent a verification email to <strong className="text-emerald-400">{registeredUser.email}</strong>.
+                We&apos;ve sent a verification email to <strong className="text-emerald-400">{registeredEmail}</strong>.
                 Please check your email inbox to verify your account and activate all features.
               </p>
             </div>

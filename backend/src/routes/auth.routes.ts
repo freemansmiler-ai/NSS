@@ -141,23 +141,9 @@ router.post("/register", async (req: Request, res: Response) => {
       emailNotice = mailErr?.message || "Verification email queueing notice.";
     }
 
-    const sessionData = {
-      userId: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      phoneNumber: user.phoneNumber,
-      role: user.role as any,
-      isPhoneVerified: true,
-      isEmailVerified: false,
-      isVerified: user.isVerified || false,
-      isUnlocked: userRole === "LANDLORD",
-    };
-
-    const token = await createSessionToken(sessionData);
-    setSessionCookie(res, token);
     res.json({
-      user: sessionData,
-      token,
+      success: true,
+      registeredEmail: user.email,
       emailSent,
       message: "Account created successfully! Please check your email inbox for a verification link.",
       emailNotice,

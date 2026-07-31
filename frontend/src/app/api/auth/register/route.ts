@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { hashPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
+import { hashPassword } from "@/lib/auth";
 import { createUserRecord, findUserByEmailOrPhone } from "@/lib/db";
 import { sendVerificationEmail } from "@/lib/email";
 import { createEmailVerificationToken } from "@/lib/verification-email";
@@ -59,32 +58,9 @@ export async function POST(request: Request) {
       emailNotice = mailErr?.message || "Verification email queueing notice.";
     }
 
-    const sessionData = {
-      userId: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      phoneNumber: user.phoneNumber,
-      role: user.role as any,
-      isPhoneVerified: true,
-      isEmailVerified: false,
-      isVerified: user.isVerified || false,
-      isUnlocked: userRole === "LANDLORD" || Boolean(user.isUnlocked),
-      unlockedPropertyIds: user.unlockedPropertyIds || [],
-    };
-
-    const token = await createSessionToken(sessionData);
-    const cookieStore = await cookies();
-    cookieStore.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-
     return NextResponse.json({
-      user: sessionData,
-      token,
+      success: true,
+      registeredEmail: user.email,
       emailSent,
       message: "Account created successfully! Please check your email inbox for a verification link.",
       emailNotice,
