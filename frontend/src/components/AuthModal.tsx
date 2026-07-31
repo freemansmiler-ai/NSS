@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserSession } from "@/lib/auth";
 import { Dialog } from "@/components/ui/dialog";
 import { User, Lock, Mail, Phone, ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
@@ -27,6 +27,37 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [resendStatus, setResendStatus] = useState("");
   const [resendError, setResendError] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
+
+  // Real-time cross-device verification status sync (e.g., registered on computer, verified on phone)
+  useEffect(() => {
+    if (!registeredUser || registeredUser.isEmailVerified) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/auth/check-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: registeredUser.email }),
+        });
+        const data = await res.json();
+        if (res.ok && data.verified && data.user) {
+          if (data.token) {
+            try {
+              localStorage.setItem("nss_token", data.token);
+            } catch {}
+          }
+          onSuccess(data.user);
+          setRegisteredUser(null);
+          setResendStatus("");
+          setResendError("");
+          setError("");
+          onClose();
+        }
+      } catch {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [registeredUser, onSuccess, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

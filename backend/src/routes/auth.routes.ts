@@ -267,6 +267,47 @@ router.post("/resend-verification", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/auth/check-status
+router.post("/check-status", async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ error: "Email is required." });
+      return;
+    }
+
+    const user = await findUserByEmail(email);
+    if (!user) {
+      res.json({ verified: false });
+      return;
+    }
+
+    if (user.isEmailVerified) {
+      const userRole = user.role as any;
+      const sessionData = {
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber || undefined,
+        role: userRole,
+        isPhoneVerified: user.isPhoneVerified ?? true,
+        isEmailVerified: true,
+        isVerified: Boolean((user as any).isVerified),
+        isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked),
+      };
+
+      const token = await createSessionToken(sessionData);
+      setSessionCookie(res, token);
+      res.json({ verified: true, user: sessionData, token });
+      return;
+    }
+
+    res.json({ verified: false });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to check status." });
+  }
+});
+
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
   clearSessionCookie(res);

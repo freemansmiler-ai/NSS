@@ -15,6 +15,7 @@ export interface UserSession {
   phoneNumber?: string;
   role: "TENANT" | "LANDLORD" | "ADMIN";
   isPhoneVerified: boolean;
+  isEmailVerified?: boolean;
   isVerified: boolean;
   isUnlocked: boolean;
   unlockedPropertyIds?: string[];
@@ -39,6 +40,7 @@ export async function createSessionToken(user: UserSession): Promise<string> {
     phoneNumber: user.phoneNumber,
     role: user.role,
     isPhoneVerified: user.isPhoneVerified,
+    isEmailVerified: Boolean(user.isEmailVerified),
     isVerified: Boolean(user.isVerified),
     isUnlocked: Boolean(user.isUnlocked),
     unlockedPropertyIds: user.unlockedPropertyIds || [],
@@ -61,6 +63,7 @@ export async function verifySessionToken(token: string): Promise<UserSession | n
       phoneNumber: payload.phoneNumber as string,
       role: payload.role as "TENANT" | "LANDLORD" | "ADMIN",
       isPhoneVerified: Boolean(payload.isPhoneVerified),
+      isEmailVerified: payload.isEmailVerified !== undefined ? Boolean(payload.isEmailVerified) : true,
       isVerified: Boolean(payload.isVerified),
       isUnlocked: Boolean(payload.isUnlocked),
       unlockedPropertyIds: Array.isArray(payload.unlockedPropertyIds) ? (payload.unlockedPropertyIds as string[]) : [],
