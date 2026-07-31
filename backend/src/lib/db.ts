@@ -420,7 +420,7 @@ export async function createUserRecord(data: {
   const phone = data.phoneNumber && data.phoneNumber.trim() !== ""
     ? data.phoneNumber
     : `+233${Math.floor(100000000 + Math.random() * 900000000)}`;
-  const isEmailVer = data.isEmailVerified ?? true;
+  const isEmailVer = data.isEmailVerified ?? false;
 
   if (neonSql) {
     try {
@@ -444,6 +444,7 @@ export async function createUserRecord(data: {
           fullName: createdUser.fullName,
           phoneNumber: createdUser.phoneNumber,
           role: createdUser.role as any,
+          isEmailVerified: isEmailVer,
           isVerified: createdUser.isVerified ?? false,
         };
         if (!localUsersStore.some((u) => u.email === cleanEmail)) {

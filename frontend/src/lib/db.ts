@@ -351,7 +351,7 @@ export async function createUserRecord(data: {
   const phone = data.phoneNumber && data.phoneNumber.trim() !== ""
     ? data.phoneNumber
     : `+233${Math.floor(100000000 + Math.random() * 900000000)}`;
-  const isEmailVer = data.isEmailVerified ?? true;
+  const isEmailVer = data.isEmailVerified ?? false;
 
   if (neonSql) {
     try {
@@ -361,8 +361,8 @@ export async function createUserRecord(data: {
       const isVer = data.isVerified ?? false;
 
       const rows = await neonSql`
-        INSERT INTO users (id, email, password, "fullName", "phoneNumber", "isPhoneVerified", "isVerified", "isUnlocked", role, "createdAt", "updatedAt")
-        VALUES (${id}, ${cleanEmail}, ${pass}, ${data.fullName}, ${phone}, true, ${isVer}, ${isUnl}, ${data.role}::"Role", NOW(), NOW())
+        INSERT INTO users (id, email, password, "fullName", "phoneNumber", "isPhoneVerified", "isEmailVerified", "isVerified", "isUnlocked", role, "createdAt", "updatedAt")
+        VALUES (${id}, ${cleanEmail}, ${pass}, ${data.fullName}, ${phone}, true, ${isEmailVer}, ${isVer}, ${isUnl}, ${data.role}::"Role", NOW(), NOW())
         RETURNING *;
       `;
 
@@ -375,6 +375,7 @@ export async function createUserRecord(data: {
           fullName: createdUser.fullName,
           phoneNumber: createdUser.phoneNumber,
           role: createdUser.role as any,
+          isEmailVerified: isEmailVer,
           isVerified: createdUser.isVerified ?? false,
         };
         if (!localUsersStore.some((u) => u.email === cleanEmail)) {
@@ -397,6 +398,7 @@ export async function createUserRecord(data: {
         phoneNumber: phone,
         role: data.role as any,
         isPhoneVerified: data.isPhoneVerified ?? true,
+        isEmailVerified: isEmailVer,
         isVerified: data.isVerified ?? false,
         isUnlocked: data.isUnlocked ?? (data.role === "LANDLORD" || data.role === "ADMIN"),
       } as any
@@ -409,6 +411,7 @@ export async function createUserRecord(data: {
       fullName: created.fullName,
       phoneNumber: created.phoneNumber,
       role: created.role as any,
+      isEmailVerified: isEmailVer,
       isVerified: (created as any).isVerified ?? false,
     };
 
@@ -428,6 +431,7 @@ export async function createUserRecord(data: {
       fullName: data.fullName,
       phoneNumber: phone,
       role: data.role,
+      isEmailVerified: isEmailVer,
       isVerified: data.isVerified ?? false,
     };
 
