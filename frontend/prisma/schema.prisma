@@ -38,6 +38,7 @@ model User {
   fullName        String
   phoneNumber     String   @unique // Saved in international format: e.g. +233240000000
   isPhoneVerified Boolean  @default(false)
+  isEmailVerified Boolean  @default(true)  // Default true to preserve existing users, newly registered users explicitly set false
   isVerified      Boolean  @default(false) // Admin verified status for both tenants and landlords
   isUnlocked      Boolean  @default(false) // Tenant contact/GPS unlock status via GHc 20.00 Paystack fee
   unlockedPropertyIds String[] @default([]) // Array of property IDs unlocked by tenant
@@ -45,9 +46,23 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  properties      Property[]
+  properties         Property[]
+  verificationTokens EmailVerificationToken[]
 
   @@map("users")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("email_verification_tokens")
 }
 
 model Property {

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { hashPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
-import { prisma, createUserRecord, findUserByEmail } from "@/lib/db";
+import { createUserRecord, findUserByEmailOrPhone } from "@/lib/db";
+import { sendVerificationEmail } from "@/lib/email";
+import { createEmailVerificationToken } from "@/lib/verification-email";
 
 export async function POST(request: Request) {
   try {
@@ -15,10 +17,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingUser = await findUserByEmail(email);
-    if (existingUser) {
+    const existingUserMatch = await findUserByEmailOrPhone(email, phoneNumber);
+    if (existingUserMatch) {
       return NextResponse.json(
-        { error: "An account with this email address already exists. Please log in." },
+        { error: "An account with this phone number or email already exists. Please log in or use a different phone number or email" },
         { status: 400 }
       );
     }
@@ -33,9 +35,29 @@ export async function POST(request: Request) {
       phoneNumber,
       role: userRole,
       isPhoneVerified: true,
+      isEmailVerified: false,
       isVerified: false,
       isUnlocked: userRole === "LANDLORD",
     });
+
+    let emailSent = false;
+    let emailNotice = "";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    try {
+      const { plainToken } = await createEmailVerificationToken(user.id);
+      const verificationUrl = `${appUrl}/verify-email?token=${plainToken}`;
+      const mailRes = await sendVerificationEmail({
+        toEmail: user.email,
+        fullName: user.fullName,
+        verificationUrl,
+      });
+      emailSent = mailRes.success;
+      emailNotice = mailRes.message;
+    } catch (mailErr: any) {
+      console.error("Frontend registration email dispatch error:", mailErr?.message || mailErr);
+      emailNotice = mailErr?.message || "Verification email queueing notice.";
+    }
 
     const sessionData = {
       userId: user.id,
@@ -44,6 +66,7 @@ export async function POST(request: Request) {
       phoneNumber: user.phoneNumber,
       role: user.role as any,
       isPhoneVerified: true,
+      isEmailVerified: false,
       isVerified: user.isVerified || false,
       isUnlocked: userRole === "LANDLORD" || Boolean(user.isUnlocked),
       unlockedPropertyIds: user.unlockedPropertyIds || [],
@@ -59,7 +82,13 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 30,
     });
 
-    return NextResponse.json({ user: sessionData, token });
+    return NextResponse.json({
+      user: sessionData,
+      token,
+      emailSent,
+      message: "Account created successfully! Please check your email inbox for a verification link.",
+      emailNotice,
+    });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Failed to register account." },

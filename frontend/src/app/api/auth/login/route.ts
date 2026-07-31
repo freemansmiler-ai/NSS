@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
-import { prisma, fetchUserUnlockedProperties, getUserUnlockedProperties, findUserByEmail } from "@/lib/db";
+import { fetchUserUnlockedProperties, getUserUnlockedProperties, findUserByEmail } from "@/lib/db";
 import { INITIAL_LANDLORDS } from "@/lib/sample-data";
 
 export async function POST(request: Request) {
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
             phoneNumber: user.phoneNumber || undefined,
             role: userRole,
             isPhoneVerified: user.isPhoneVerified ?? true,
+            isEmailVerified: user.isEmailVerified !== undefined ? Boolean(user.isEmailVerified) : true,
             isVerified: (user as any).isVerified || false,
             isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked) || unlockedPropertyIds.length > 0,
             unlockedPropertyIds,
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
         phoneNumber: demoLandlord ? demoLandlord.phoneNumber : "+233 24 000 0000",
         role: isLandlordOrAdmin as any,
         isPhoneVerified: true,
+        isEmailVerified: true,
         isVerified: true,
         isUnlocked: true,
         unlockedPropertyIds: persistentUnlocked,

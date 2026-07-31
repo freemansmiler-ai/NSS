@@ -1,5 +1,14 @@
 [
   {
+    "id": "usr-1785494692741",
+    "email": "freemanass@gmail.com",
+    "password": "$2b$10$WvSxTsz5bWY8M2eRX6jkCOhoV7c0qDaTMzseVsBd3qRGFZ5BBFzo6",
+    "fullName": "Freeman",
+    "phoneNumber": "0557208794",
+    "role": "TENANT",
+    "isVerified": false
+  },
+  {
     "id": "usr-1785343308589",
     "email": "landlord@gmail.com",
     "password": "$2b$10$UMKCsPGFYwaKFDJmKxNJYe1XAD3TwU66CGhWOB4fuunNdoslqlZGO",

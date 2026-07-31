@@ -343,6 +343,7 @@ export async function createUserRecord(data: {
   phoneNumber?: string;
   role: "TENANT" | "LANDLORD" | "ADMIN";
   isPhoneVerified?: boolean;
+  isEmailVerified?: boolean;
   isVerified?: boolean;
   isUnlocked?: boolean;
 }): Promise<any> {
@@ -350,6 +351,7 @@ export async function createUserRecord(data: {
   const phone = data.phoneNumber && data.phoneNumber.trim() !== ""
     ? data.phoneNumber
     : `+233${Math.floor(100000000 + Math.random() * 900000000)}`;
+  const isEmailVer = data.isEmailVerified ?? true;
 
   if (neonSql) {
     try {
@@ -496,6 +498,74 @@ export async function findUserByEmail(email: string): Promise<any | null> {
       isPhoneVerified: true,
       isVerified: local.isVerified ?? true,
       isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
+    };
+  }
+
+  return null;
+}
+
+export async function findUserByEmailOrPhone(email: string, phoneNumber?: string): Promise<{ user: any; matchReason: "EMAIL" | "PHONE" } | null> {
+  const cleanEmail = email.toLowerCase().trim();
+  const cleanPhone = phoneNumber && phoneNumber.trim() !== "" ? phoneNumber.trim() : null;
+
+  if (neonSql) {
+    try {
+      if (cleanPhone) {
+        const rows = await withTimeout(
+          neonSql`
+            SELECT * FROM users WHERE LOWER(email) = ${cleanEmail} OR "phoneNumber" = ${cleanPhone} LIMIT 1;
+          `,
+          2000
+        );
+        if (rows && rows.length > 0) {
+          const u = rows[0];
+          const reason = u.email.toLowerCase() === cleanEmail ? "EMAIL" : "PHONE";
+          return { user: u, matchReason: reason };
+        }
+      } else {
+        const rows = await withTimeout(
+          neonSql`
+            SELECT * FROM users WHERE LOWER(email) = ${cleanEmail} LIMIT 1;
+          `,
+          2000
+        );
+        if (rows && rows.length > 0) {
+          return { user: rows[0], matchReason: "EMAIL" };
+        }
+      }
+    } catch {}
+  }
+
+  try {
+    const OR_CONDITIONS: any[] = [{ email: cleanEmail }];
+    if (cleanPhone) OR_CONDITIONS.push({ phoneNumber: cleanPhone });
+
+    const user = await withTimeout(
+      prisma.user.findFirst({ where: { OR: OR_CONDITIONS } }),
+      2000
+    );
+    if (user) {
+      const reason = user.email.toLowerCase() === cleanEmail ? "EMAIL" : "PHONE";
+      return { user, matchReason: reason };
+    }
+  } catch {}
+
+  const local = localUsersStore.find((u) => u.email.toLowerCase() === cleanEmail || (cleanPhone !== null && u.phoneNumber === cleanPhone));
+  if (local) {
+    const reason = local.email.toLowerCase() === cleanEmail ? "EMAIL" : "PHONE";
+    return {
+      user: {
+        id: local.id,
+        email: local.email,
+        password: local.password || "password123",
+        fullName: local.fullName,
+        phoneNumber: local.phoneNumber,
+        role: local.role,
+        isPhoneVerified: true,
+        isVerified: local.isVerified ?? true,
+        isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
+      },
+      matchReason: reason,
     };
   }
 
