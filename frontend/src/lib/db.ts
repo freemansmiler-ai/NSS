@@ -496,6 +496,7 @@ export async function findUserByEmail(email: string): Promise<any | null> {
       phoneNumber: local.phoneNumber,
       role: local.role,
       isPhoneVerified: true,
+      isEmailVerified: local.isEmailVerified !== undefined ? Boolean(local.isEmailVerified) : true,
       isVerified: local.isVerified ?? true,
       isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
     };

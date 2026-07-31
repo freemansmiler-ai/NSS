@@ -144,6 +144,31 @@ export default function HomePage() {
     loadProperties();
   }, [searchQuery, propertyTypeFilter, facilityTypeFilter, leasePeriodFilter, maxPrice, user]);
 
+  // Real-time cross-device background sync for unverified logged-in user sessions
+  useEffect(() => {
+    if (!user || user.isEmailVerified) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/auth/check-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: user.email }),
+        });
+        const data = await res.json();
+        if (res.ok && data.verified && data.user) {
+          if (data.token) {
+            try { localStorage.setItem("nss_token", data.token); } catch {}
+          }
+          setUser(data.user);
+          setIsAuthOpen(false);
+        }
+      } catch {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     clearFavoriteIds();

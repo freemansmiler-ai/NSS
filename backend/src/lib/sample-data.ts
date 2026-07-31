@@ -5,6 +5,7 @@ export interface UserData {
   fullName: string;
   phoneNumber: string;
   role: "TENANT" | "LANDLORD" | "ADMIN";
+  isEmailVerified?: boolean;
   isVerified?: boolean;
   isUnlocked?: boolean;
 }

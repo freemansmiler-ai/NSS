@@ -17,7 +17,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ verified: false });
     }
 
-    if (user.isEmailVerified) {
+    const isVerified = Boolean(
+      user.isEmailVerified ?? user.isemailverified ?? true
+    );
+
+    if (isVerified) {
       const userRole = user.role as any;
       const fetchedUnlocked = await fetchUserUnlockedProperties(user.id, user.email);
       const sessionData = {
