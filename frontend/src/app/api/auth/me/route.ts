@@ -5,7 +5,7 @@ import { fetchUserUnlockedProperties } from "@/lib/db";
 export async function GET(request: Request) {
   try {
     const session = await getSessionFromRequest(request);
-    if (!session) {
+    if (!session || session.isEmailVerified === false) {
       return NextResponse.json({ user: null });
     }
 

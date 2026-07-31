@@ -21,6 +21,17 @@ export async function POST(request: Request) {
       if (user) {
         const isValid = await verifyPassword(password, user.password);
         if (isValid) {
+          if (user.isEmailVerified === false) {
+            return NextResponse.json(
+              {
+                error: "Your email address has not been verified yet. Please check your email inbox for the verification link.",
+                isUnverified: true,
+                email: user.email,
+              },
+              { status: 403 }
+            );
+          }
+
           const userRole = user.role as any;
           const dbUnlocked: string[] = Array.isArray((user as any).unlockedPropertyIds) ? (user as any).unlockedPropertyIds : [];
           const fetchedUnlocked = await fetchUserUnlockedProperties(user.id, user.email);
@@ -33,7 +44,7 @@ export async function POST(request: Request) {
             phoneNumber: user.phoneNumber || undefined,
             role: userRole,
             isPhoneVerified: user.isPhoneVerified ?? true,
-            isEmailVerified: user.isEmailVerified !== undefined ? Boolean(user.isEmailVerified) : true,
+            isEmailVerified: true,
             isVerified: (user as any).isVerified || false,
             isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked) || unlockedPropertyIds.length > 0,
             unlockedPropertyIds,

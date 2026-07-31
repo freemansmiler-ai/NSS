@@ -72,12 +72,13 @@ export default function HomePage() {
   );
 
   const handleUpdateUser = (updatedUser: UserSession | null) => {
-    setUser(updatedUser);
-    if (updatedUser) {
+    if (updatedUser && updatedUser.isEmailVerified !== false) {
+      setUser(updatedUser);
       try {
         localStorage.setItem("nss_user", JSON.stringify(updatedUser));
       } catch {}
     } else {
+      setUser(null);
       try {
         localStorage.removeItem("nss_user");
         localStorage.removeItem("nss_token");
@@ -91,8 +92,14 @@ export default function HomePage() {
     try {
       const savedUser = localStorage.getItem("nss_user");
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
-        hasLocalUser = true;
+        const parsed = JSON.parse(savedUser);
+        if (parsed && parsed.isEmailVerified !== false) {
+          setUser(parsed);
+          hasLocalUser = true;
+        } else {
+          localStorage.removeItem("nss_user");
+          localStorage.removeItem("nss_token");
+        }
       }
     } catch {}
 
@@ -105,9 +112,9 @@ export default function HomePage() {
     fetch("/api/auth/me", { headers })
       .then((res) => res.json())
       .then((data) => {
-        if (data.user) {
+        if (data.user && data.user.isEmailVerified !== false) {
           handleUpdateUser(data.user);
-        } else if (!hasLocalUser) {
+        } else {
           handleUpdateUser(null);
         }
       })

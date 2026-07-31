@@ -17,6 +17,10 @@ const router = Router();
 // GET /api/auth/me
 router.get("/me", async (req: Request, res: Response) => {
   const session = await getSessionFromRequest(req);
+  if (!session || session.isEmailVerified === false) {
+    res.json({ user: null });
+    return;
+  }
   res.json({ user: session });
 });
 
@@ -36,6 +40,15 @@ router.post("/login", async (req: Request, res: Response) => {
       if (user) {
         const isValid = await verifyPassword(password, user.password);
         if (isValid) {
+          if (user.isEmailVerified === false) {
+            res.status(403).json({
+              error: "Your email address has not been verified yet. Please check your email inbox for the verification link.",
+              isUnverified: true,
+              email: user.email,
+            });
+            return;
+          }
+
           const userRole = user.role as any;
           const sessionData = {
             userId: user.id,
@@ -44,7 +57,7 @@ router.post("/login", async (req: Request, res: Response) => {
             phoneNumber: user.phoneNumber || undefined,
             role: userRole,
             isPhoneVerified: user.isPhoneVerified ?? true,
-            isEmailVerified: user.isEmailVerified !== undefined ? Boolean(user.isEmailVerified) : true,
+            isEmailVerified: true,
             isVerified: (user as any).isVerified || false,
             isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean((user as any).isUnlocked),
           };
