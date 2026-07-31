@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const isVerified = Boolean(
-      user.isEmailVerified ?? user.isemailverified ?? true
+      user.isEmailVerified === true || user.isemailverified === true
     );
 
     if (isVerified) {

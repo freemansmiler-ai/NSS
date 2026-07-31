@@ -549,7 +549,8 @@ export async function findUserByEmail(email: string): Promise<any | null> {
       phoneNumber: local.phoneNumber,
       role: local.role,
       isPhoneVerified: true,
-      isVerified: local.isVerified ?? true,
+      isEmailVerified: local.isEmailVerified !== undefined ? Boolean(local.isEmailVerified) : Boolean(local.isVerified),
+      isVerified: local.isVerified ?? false,
       isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
     };
   }

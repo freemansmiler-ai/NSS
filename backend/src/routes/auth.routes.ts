@@ -282,7 +282,8 @@ router.post("/check-status", async (req: Request, res: Response) => {
       return;
     }
 
-    if (user.isEmailVerified) {
+    const isVerified = Boolean(user.isEmailVerified === true || (user as any).isemailverified === true);
+    if (isVerified) {
       const userRole = user.role as any;
       const sessionData = {
         userId: user.id,
