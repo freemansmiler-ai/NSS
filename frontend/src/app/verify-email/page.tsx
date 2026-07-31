@@ -16,6 +16,8 @@ function VerifyEmailContent() {
   const [resendMessage, setResendMessage] = useState("");
   const [resendError, setResendError] = useState("");
 
+  const [verifiedUser, setVerifiedUser] = useState<any>(null);
+
   useEffect(() => {
     if (!token) {
       setStatus("INVALID");
@@ -34,6 +36,12 @@ function VerifyEmailContent() {
         const data = await res.json();
 
         if (res.ok && data.success) {
+          if (data.token) {
+            try { localStorage.setItem("nss_token", data.token); } catch {}
+          }
+          if (data.user) {
+            setVerifiedUser(data.user);
+          }
           if (data.status === "ALREADY_VERIFIED") {
             setStatus("ALREADY_VERIFIED");
           } else {
@@ -111,7 +119,9 @@ function VerifyEmailContent() {
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h2 className="text-xl font-bold text-white">Your email has been verified successfully.</h2>
-            <p className="text-xs text-slate-300 leading-relaxed">{message}</p>
+            <p className="text-xs text-emerald-400 font-semibold leading-relaxed">
+              {verifiedUser ? `Welcome, ${verifiedUser.fullName}! You are now automatically logged in.` : message}
+            </p>
             <p className="text-xs text-slate-400">Your account is fully active. You can now browse listings, contact landlords directly, and view GhanaPostGPS addresses.</p>
 
             <Link

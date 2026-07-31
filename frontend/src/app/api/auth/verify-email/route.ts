@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createSessionToken, getSessionCookie, COOKIE_NAME } from "@/lib/auth";
+import { findUserById, fetchUserUnlockedProperties } from "@/lib/db";
 import { verifyEmailToken } from "@/lib/verification-email";
 
 export async function POST(request: Request) {
@@ -28,36 +29,59 @@ export async function POST(request: Request) {
       );
     }
 
-    // Refresh active session if user is logged in
-    const session = await getSessionCookie();
-    if (session && (session.userId === result.userId || !result.userId)) {
-      const updatedSession = {
-        ...session,
-        isEmailVerified: true,
-      };
+    let sessionData: any = null;
+    if (result.userId) {
+      const dbUser = await findUserById(result.userId);
+      if (dbUser) {
+        const userRole = dbUser.role as any;
+        const fetchedUnlocked = await fetchUserUnlockedProperties(dbUser.id, dbUser.email);
+        sessionData = {
+          userId: dbUser.id,
+          email: dbUser.email,
+          fullName: dbUser.fullName,
+          phoneNumber: dbUser.phoneNumber || undefined,
+          role: userRole,
+          isPhoneVerified: dbUser.isPhoneVerified ?? true,
+          isEmailVerified: true,
+          isVerified: Boolean(dbUser.isVerified),
+          isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean(dbUser.isUnlocked),
+          unlockedPropertyIds: fetchedUnlocked,
+        };
 
-      const newToken = await createSessionToken(updatedSession);
-      const cookieStore = await cookies();
-      cookieStore.set(COOKIE_NAME, newToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30,
-      });
+        const newToken = await createSessionToken(sessionData);
+        const cookieStore = await cookies();
+        cookieStore.set(COOKIE_NAME, newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
+    }
 
-      return NextResponse.json({
-        success: true,
-        message: result.message,
-        status: result.status,
-        user: updatedSession,
-      });
+    if (!sessionData) {
+      const session = await getSessionCookie();
+      if (session) {
+        sessionData = { ...session, isEmailVerified: true };
+        const newToken = await createSessionToken(sessionData);
+        const cookieStore = await cookies();
+        cookieStore.set(COOKIE_NAME, newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: result.message,
       status: result.status,
+      user: sessionData,
+      token: sessionData ? await createSessionToken(sessionData) : undefined,
     });
   } catch (err: any) {
     return NextResponse.json(

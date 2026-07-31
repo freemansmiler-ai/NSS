@@ -1,5 +1,14 @@
 [
   {
+    "id": "usr-1785498238871",
+    "email": "freemanasses@gmail.com",
+    "password": "$2b$10$pe5Ew.6C6oXeDoQBz.WJauFglr4G6M2Gh7Cn92B8wpucWdWbnoXzy",
+    "fullName": "Test",
+    "phoneNumber": "024526352",
+    "role": "TENANT",
+    "isVerified": false
+  },
+  {
     "id": "usr-1785494692741",
     "email": "freemanass@gmail.com",
     "password": "$2b$10$WvSxTsz5bWY8M2eRX6jkCOhoV7c0qDaTMzseVsBd3qRGFZ5BBFzo6",

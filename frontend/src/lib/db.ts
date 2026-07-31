@@ -572,6 +572,46 @@ export async function findUserByEmailOrPhone(email: string, phoneNumber?: string
   return null;
 }
 
+export async function findUserById(id: string): Promise<any | null> {
+  if (neonSql) {
+    try {
+      const rows = await withTimeout(
+        neonSql`
+          SELECT * FROM users WHERE id = ${id} LIMIT 1;
+        `,
+        2000
+      );
+      if (rows && rows.length > 0) return rows[0];
+    } catch {}
+  }
+
+  try {
+    const user = await withTimeout(
+      prisma.user.findUnique({ where: { id } }),
+      2000
+    );
+    if (user) return user;
+  } catch {}
+
+  const local = localUsersStore.find((u) => u.id === id);
+  if (local) {
+    return {
+      id: local.id,
+      email: local.email,
+      password: local.password || "password123",
+      fullName: local.fullName,
+      phoneNumber: local.phoneNumber,
+      role: local.role,
+      isPhoneVerified: true,
+      isEmailVerified: true,
+      isVerified: local.isVerified ?? true,
+      isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
+    };
+  }
+
+  return null;
+}
+
 export function processPropertyLifecycle(prop: PropertyData): { item: PropertyData; shouldDelete: boolean } {
   if (deletedPropertyIds.has(prop.id)) {
     return { item: prop, shouldDelete: true };

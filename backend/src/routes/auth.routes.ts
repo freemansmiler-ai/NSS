@@ -7,7 +7,7 @@ import {
   clearSessionCookie,
   getSessionFromRequest
 } from "../lib/auth.js";
-import { prisma, createUserRecord, findUserByEmail, findUserByEmailOrPhone } from "../lib/db.js";
+import { prisma, createUserRecord, findUserByEmail, findUserByEmailOrPhone, findUserById } from "../lib/db.js";
 import { INITIAL_LANDLORDS } from "../lib/sample-data.js";
 import { sendVerificationEmail } from "../lib/email.js";
 import { createEmailVerificationToken, verifyEmailToken } from "../lib/verification-email.js";
@@ -186,28 +186,42 @@ router.post("/verify-email", async (req: Request, res: Response) => {
       return;
     }
 
-    // Refresh active user session if logged in
-    const session = await getSessionFromRequest(req);
-    if (session && (session.userId === result.userId || !result.userId)) {
-      const updatedSession = {
-        ...session,
-        isEmailVerified: true,
-      };
-      const newToken = await createSessionToken(updatedSession);
-      setSessionCookie(res, newToken);
-      res.json({
-        success: true,
-        message: result.message,
-        status: result.status,
-        user: updatedSession,
-      });
-      return;
+    // Automatically log in user after successful email verification
+    let sessionData: any = null;
+    if (result.userId) {
+      const dbUser = await findUserById(result.userId);
+      if (dbUser) {
+        const userRole = dbUser.role as any;
+        sessionData = {
+          userId: dbUser.id,
+          email: dbUser.email,
+          fullName: dbUser.fullName,
+          phoneNumber: dbUser.phoneNumber || undefined,
+          role: userRole,
+          isPhoneVerified: dbUser.isPhoneVerified ?? true,
+          isEmailVerified: true,
+          isVerified: Boolean(dbUser.isVerified),
+          isUnlocked: userRole === "ADMIN" || userRole === "LANDLORD" || Boolean(dbUser.isUnlocked),
+        };
+        const newToken = await createSessionToken(sessionData);
+        setSessionCookie(res, newToken);
+      }
+    }
+
+    if (!sessionData) {
+      const session = await getSessionFromRequest(req);
+      if (session) {
+        sessionData = { ...session, isEmailVerified: true };
+        const newToken = await createSessionToken(sessionData);
+        setSessionCookie(res, newToken);
+      }
     }
 
     res.json({
       success: true,
       message: result.message,
       status: result.status,
+      user: sessionData,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to verify email." });

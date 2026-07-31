@@ -618,4 +618,38 @@ export async function findUserByEmailOrPhone(email: string, phoneNumber?: string
   return null;
 }
 
+export async function findUserById(id: string): Promise<any | null> {
+  if (neonSql) {
+    try {
+      const rows = await neonSql`
+        SELECT * FROM users WHERE id = ${id} LIMIT 1;
+      `;
+      if (rows && rows.length > 0) return rows[0];
+    } catch {}
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (user) return user;
+  } catch {}
+
+  const local = localUsersStore.find((u) => u.id === id);
+  if (local) {
+    return {
+      id: local.id,
+      email: local.email,
+      password: local.password || "password123",
+      fullName: local.fullName,
+      phoneNumber: local.phoneNumber,
+      role: local.role,
+      isPhoneVerified: true,
+      isEmailVerified: true,
+      isVerified: local.isVerified ?? true,
+      isUnlocked: local.role === "LANDLORD" || local.role === "ADMIN",
+    };
+  }
+
+  return null;
+}
+
 
